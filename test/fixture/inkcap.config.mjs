@@ -1,0 +1,21 @@
+export default {
+  name: 'fixture',
+  url: 'https://fixture.example/',
+  repo: 'https://github.com/1broseidon/fixture',
+  tagline: 'a manual to test inkcap with',
+  built: 'Built for the test suite',
+  version: 'v1.2.3',
+  changelog: 'CHANGELOG.md',
+  manual: 'MANUAL.md',
+  ogImage: '/og.png',
+  llmsExtra: ['- Extra: https://fixture.example/extra.txt'],
+  notFoundExtra: 'The schemas have not moved.',
+  legacyAnchors: { '#what': '#overview' },
+  moved: { '/quick-start': '/#install' },
+  redirects: '/old   /#install   301\n',
+  accent: {
+    light: { accent: '#0B6A72', soft: '#DFEDEE' },
+    dark: { accent: '#5FBAC2', soft: '#14282B' },
+    terminal: { prompt: '#4FA3AB', key: '#8FC9CE' },
+  },
+}

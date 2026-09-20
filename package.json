@@ -1,0 +1,42 @@
+{
+  "name": "inkcap",
+  "version": "0.1.0",
+  "description": "Publishes a MANUAL.md as a one-page manual site in the chain.sh house style.",
+  "type": "module",
+  "bin": {
+    "inkcap": "bin/inkcap.mjs"
+  },
+  "exports": {
+    ".": "./src/build.mjs",
+    "./config": "./src/config.mjs",
+    "./stars": "./src/stars.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test 'test/*.test.mjs'"
+  },
+  "dependencies": {
+    "marked": "^18.0.13"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": "github:1broseidon/inkcap",
+  "homepage": "https://github.com/1broseidon/inkcap#readme",
+  "bugs": "https://github.com/1broseidon/inkcap/issues",
+  "keywords": [
+    "manual",
+    "documentation",
+    "static-site",
+    "markdown",
+    "llms-txt",
+    "chain.sh"
+  ],
+  "license": "MIT"
+}
