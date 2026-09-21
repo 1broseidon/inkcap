@@ -19,12 +19,14 @@ A site is a directory, usually `site/`, next to the repo's `MANUAL.md`:
 
 ```
 MANUAL.md
-CHANGELOG.md            optional, rendered at /changelog/
+CHANGELOG.md                 optional, rendered at /changelog/
+.github/workflows/docs.yml   the GitHub Pages workflow under Hosting, below
 site/
-  inkcap.config.mjs     everything that differs from the other sites
-  package.json          { "devDependencies": { "inkcap": "^0.1.0" } }
-  public/               copied into dist/ untouched: favicon.svg, CNAME, ...
-  stars.json            written by `inkcap stars`, committed
+  inkcap.config.mjs          everything that differs from the other sites
+  package.json               { "devDependencies": { "inkcap": "^0.2.0" } }
+  .gitignore                 node_modules, dist
+  public/                    copied into dist/ untouched: favicon.svg, ...
+  stars.json                 written by `inkcap stars`, committed
 ```
 
 ```console
@@ -141,41 +143,69 @@ so the page stays current between builds.
 ## Hosting
 
 The output is a static directory. GitHub Pages is the home it is made for:
-the workflow below is the whole deployment. The version chip comes from git
-tags, so it needs the full history and a run on each release; the star count
-is fetched with the workflow's own token and kept live by the page itself.
+the workflow below is the whole deployment, saved as
+`.github/workflows/docs.yml`, with the repo's Pages source set to GitHub
+Actions and the custom domain set in the repo's Pages settings. The version
+chip comes from git tags, so it needs the full history and a run on each
+release; the star count is fetched with the workflow's own token and kept
+live by the page itself.
 
 ```yaml
-name: Deploy site
+name: Deploy Docs
+
+# example.sh is a GitHub Pages site printed by inkcap from MANUAL.md. The
+# version chip comes from git tags, so the workflow also runs when a release
+# is published; the star count is baked in as a fallback and kept live by
+# the page itself.
 on:
   push:
     branches: [main]
-    paths: ['MANUAL.md', 'site/**']
+    paths: ['MANUAL.md', 'CHANGELOG.md', 'site/**', '.github/workflows/docs.yml']
   release:
     types: [published]
   workflow_dispatch:
+
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # the version chip comes from `git describe --tags`
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: site/package-lock.json
-      - run: cd site && npm ci && npm run build
+      - name: Install
+        run: cd site && npm ci
+      - name: Build
+        run: cd site && npm run build
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: peaceiris/actions-gh-pages@v4
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # star count, never fails the build
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: site/dist
-          cname: example.sh
+          path: site/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
 ```
 
 Any static host serves the same directory. **Cloudflare Workers**, for
