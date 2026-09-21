@@ -222,11 +222,12 @@ $ recoil wake --max-chars 1600
 Every `$` line in a capture block is a command. The build runs the ones whose
 first word is the tool's name, in document order, in one sandbox, and replaces
 everything under each prompt with what the command printed, plus `→ exit N`
-when it exited non-zero. `#` comment lines and other `→` annotations under a
-prompt are kept, after the fresh output, in their original order. Prompts
-whose first word is anything else, `curl … | sh`, `brew`, `make`, `cd`, are
-printed as written and never run. Long-running or networked commands are
-simply not marked.
+when it exited non-zero. Nothing under a prompt is treated as the author's,
+because a tool may print anything, `#` lines included; an annotation belongs
+in the paragraph after the block, or in an unmarked block. Prompts whose
+first word is anything else, `curl … | sh`, `brew`, `make`, `cd`, are printed
+as written and never run. Long-running or networked commands are simply not
+marked.
 
 The sandbox is a fresh directory at a fixed path, `/tmp/<name>` by default,
 so paths in the output are stable from one run to the next. `HOME` and the
@@ -328,9 +329,11 @@ facts are absent keys.
 
 `inkcap` is the shape's version; it changes only when a key changes meaning.
 `install.command` is the hero's Install block with the prompts dropped;
-`agent` is the "Or hand it to your agent" block; `commands` are the rows of
-the Commands section; `sections` and `guides` carry the same one-line
-summaries as `llms.txt`.
+`install.scripts` and `install.uninstall` are the installer scripts served
+from the root; `agent` is the "Or hand it to your agent" block; `commands`
+are the rows of the Commands section; `questions` are the rows of the
+Questions section; `sections` and `guides` carry the same one-line summaries
+as `llms.txt`.
 
 ## Configuration
 
@@ -361,8 +364,9 @@ export default {
 | `tagline` | completes the `<title>` | the first sentence of the lede when it is short, else the name alone |
 | `built` | the footer line after the licence | omitted |
 | `license` | the footer's licence line, `MIT` | read from `LICENSE`; otherwise omitted |
+| `language` | `language` in `manifest.json` | read from `go.mod`, `Cargo.toml`, `package.json`, `pyproject.toml`; otherwise omitted |
 | `accent` | the one part of the stylesheet that is the site's own: light and dark accent with their soft tints, and the terminal prompt and quoted-string tints; any missing value keeps the default | the default ink |
-| `manual` | path to the manual, relative to the site directory | `../MANUAL.md`, `./MANUAL.md`, `./README.md`, in that order from the site directory |
+| `manual` | path to the manual, relative to the site directory | `./MANUAL.md`, `../MANUAL.md`, `./README.md`, in that order from the site directory |
 | `changelog` | path to a Keep-a-Changelog file | `CHANGELOG.md` in the root |
 | `guides` | path to the guides directory | `guides/` in the root |
 | `version` | the version chip | `git describe --tags` |
@@ -372,6 +376,7 @@ export default {
 | `redirects` | the literal contents of a `_redirects` file, for hosts that honour one | no `_redirects` |
 | `llmsExtra` | extra lines for the Links section of `llms.txt` | |
 | `notFoundExtra` | a sentence added to the 404 page | |
+| `family` | `{ label, href }`, the footer's far link; `false` removes it | chain.sh, the family inkcap was made for |
 | `captures` | the capture sandbox, see Captures | the defaults there |
 | `robots`, `sitemap`, `manifest`, `jsonld`, `editions` | `false` switches that output off | all on |
 | `out`, `public`, `stars` | output, assets and star-count paths | `dist`, `public`, `stars.json` |

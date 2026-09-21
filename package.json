@@ -1,7 +1,7 @@
 {
   "name": "inkcap",
-  "version": "0.2.0",
-  "description": "Publishes a MANUAL.md as a one-page manual site. Made for GitHub Pages; any static host works.",
+  "version": "0.3.0",
+  "description": "Publishes a MANUAL.md as a one-page manual site with the machine editions an agent reads. Made for GitHub Pages; any static host works.",
   "type": "module",
   "bin": {
     "inkcap": "bin/inkcap.mjs"
@@ -36,6 +36,7 @@
     "static-site",
     "markdown",
     "llms-txt",
+    "agents",
     "chain.sh"
   ],
   "license": "MIT"

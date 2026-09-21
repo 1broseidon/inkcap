@@ -78,6 +78,17 @@ limit: 5
 Two files on this domain are written for agents: [/llms.txt](/llms.txt) and
 [/llms-full.txt](/llms-full.txt).
 
+## Questions
+
+#### Does fixture need a config file?
+
+No. It works before it is configured, and `fixture config` shows what it
+inferred.
+
+#### Can I run it offline?
+
+Yes, every command works without a network; only `--upstream` reaches out.
+
 ## Notes
 
 - **Bare domains** may return llms.txt instead of the homepage.
