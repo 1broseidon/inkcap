@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { build, parseChangelog, parseManual } from '../src/build.mjs'
 import { loadConfig, validate } from '../src/config.mjs'
-import { readStarCount } from '../src/stars.mjs'
+import { formatStars, readStarCount } from '../src/stars.mjs'
 
 const site = new URL('./fixture/', import.meta.url).pathname
 const read = (out, p) => readFile(path.join(out, p), 'utf8')
@@ -50,6 +50,7 @@ test('a fixture manual renders into every output inkcap promises', async () => {
     assert.match(html, /<span>Built for the test suite<\/span>/)
     assert.match(html, /<span><a href="https:\/\/github\.com\/1broseidon\/inkcap">Published with inkcap<\/a><\/span>/)
     assert.match(html, /<meta name="generator" content="inkcap \d+\.\d+\.\d+">/)
+    assert.match(html, /fetch\('https:\/\/api\.github\.com\/repos\/1broseidon\/fixture'\)/, 'the star count refreshes in the browser')
 
     const llms = await read(out, 'llms.txt')
     assert.match(llms, /^# fixture\n\n> A small tool/)
@@ -98,6 +99,13 @@ test('changelog headings become version ids', () => {
     ['0.17.1', '0.17.1 — 2026-09-18'],
     ['0.2.0', '0.2.0'],
   ])
+})
+
+test('star counts print the way GitHub does', () => {
+  assert.equal(formatStars(599), '599')
+  assert.equal(formatStars(1000), '1k')
+  assert.equal(formatStars(1234), '1.2k')
+  assert.equal(formatStars(12345), '12k')
 })
 
 test('stars.json reads in both shapes', () => {

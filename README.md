@@ -1,6 +1,7 @@
 # inkcap
 
-Publishes a `MANUAL.md` as a one-page manual site in the chain.sh house style.
+Publishes a `MANUAL.md` as a one-page manual site. Made for GitHub Pages;
+any static host works.
 
 An inkcap is the mushroom whose cap melts into a black ink that people once
 wrote with. As a name it is a small imprint: a repo's `MANUAL.md` goes in,
@@ -9,8 +10,8 @@ agent expects next to it, and a "Published with inkcap" line at the foot.
 
 It is the build behind [ketch.run](https://ketch.run),
 [cymbal.sh](https://cymbal.sh) and [brainfile.md](https://brainfile.md).
-There is no framework: one Node script, `marked` at build time, zero
-JavaScript shipped beyond a copy button.
+There is no framework: one Node script, `marked` at build time, and the only
+JavaScript shipped is a copy button and the live star count.
 
 ## Use
 
@@ -133,14 +134,16 @@ dist/
 ```
 
 Every page carries a `<meta name="generator" content="inkcap x.y.z">` tag
-and the "Published with inkcap" line in its footer.
+and the "Published with inkcap" line in its footer. The masthead's star count
+is baked in from `stars.json` and refreshed from the GitHub API on each visit,
+so the page stays current between builds.
 
 ## Hosting
 
-The output is a static directory; any host serves it. Two recipes are in use.
-
-**GitHub Pages**, with the version taken from tags and the star count fetched
-with the workflow's own token:
+The output is a static directory. GitHub Pages is the home it is made for:
+the workflow below is the whole deployment. The version chip comes from git
+tags, so it needs the full history and a run on each release; the star count
+is fetched with the workflow's own token and kept live by the page itself.
 
 ```yaml
 name: Deploy site
@@ -175,7 +178,8 @@ jobs:
           cname: example.sh
 ```
 
-**Cloudflare Workers**, deployed by hand with `wrangler deploy` from `site/`:
+Any static host serves the same directory. **Cloudflare Workers**, for
+instance, deployed by hand with `wrangler deploy` from `site/`:
 
 ```jsonc
 {

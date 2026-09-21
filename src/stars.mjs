@@ -12,6 +12,10 @@ export async function fetchStars(repo, { token = process.env.GITHUB_TOKEN } = {}
   return stargazers_count
 }
 
+/* 1234 prints as 1.2k, 12345 as 12k; below a thousand the number stands. */
+export const formatStars = (n) =>
+  n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'k' : String(n)
+
 /* stars.json is `{ "stars": 591, "updated": "2026-09-20" }`. The older
  * `{ "<name>": 591 }` shape from the sites' first builds still reads. */
 export function readStarCount(json, name) {

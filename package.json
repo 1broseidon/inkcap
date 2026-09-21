@@ -1,7 +1,7 @@
 {
   "name": "inkcap",
-  "version": "0.1.0",
-  "description": "Publishes a MANUAL.md as a one-page manual site in the chain.sh house style.",
+  "version": "0.2.0",
+  "description": "Publishes a MANUAL.md as a one-page manual site. Made for GitHub Pages; any static host works.",
   "type": "module",
   "bin": {
     "inkcap": "bin/inkcap.mjs"

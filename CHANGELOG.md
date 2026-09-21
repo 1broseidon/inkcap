@@ -6,6 +6,19 @@ All notable changes to inkcap are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-20
+
+### Added
+
+- Live star count: the masthead asks GitHub for the repo's current star count
+  on each visit and falls back to the baked `stars.json` value. Counts of a
+  thousand or more print as `1.2k`, as ketch.run did before the port.
+
+### Changed
+
+- The README and package description lead with GitHub Pages as the intended
+  host; other static hosts remain supported.
+
 ## [0.1.0] - 2026-09-20
 
 ### Added
