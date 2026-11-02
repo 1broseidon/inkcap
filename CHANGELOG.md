@@ -6,6 +6,12 @@ All notable changes to inkcap are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-02
+
+### Fixed
+
+- A name beside a mark sits on the same baseline as the version chip.
+
 ## [0.6.0] - 2026-11-02
 
 One line still prints a manual. What changed is what the manual can show,

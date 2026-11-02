@@ -129,8 +129,8 @@ a:hover { text-decoration-thickness: 2px; }
 
 .masthead a.mark { text-decoration: none; }
 .masthead .mark { font-weight: 600; letter-spacing: 0.02em; color: var(--text); }
-.masthead .mark.has-mark { display: inline-flex; align-items: center; gap: 0.5rem; }
-.masthead .mark svg { height: 1.25em; width: auto; flex: none; color: var(--accent); }
+.masthead .mark.has-mark { display: inline-flex; align-items: baseline; gap: 0.5rem; }
+.masthead .mark svg { align-self: center; height: 1.25em; width: auto; flex: none; color: var(--accent); }
 .masthead .ver { color: var(--muted); font-variant-numeric: tabular-nums; text-decoration: none; }
 .masthead a.ver:hover { color: var(--accent); }
 .masthead nav { margin-left: auto; display: flex; gap: 1.25rem; }
