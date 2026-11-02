@@ -2,6 +2,7 @@
 title: Using fixture with git worktrees
 description: One store, one project, however many worktrees.
 cluster: Workflows
+section: exit-status
 reviewed: 2026-09-21
 ---
 

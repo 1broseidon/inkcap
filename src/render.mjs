@@ -213,23 +213,27 @@ const unmark = (tok) => {
 
 /* ---------- block rendering ---------- */
 
-const cell = (raw, first) => {
+/* A cell after the first carries its column's name, so on a phone, where
+ * each row stacks into a block, the value still says what it is. */
+const cell = (raw, first, label) => {
+  const named = !first && label ? ` data-label="${esc(label)}"` : ''
   const bare = raw.match(/^`([^`]+)`$/)
-  if (bare) return `<td class="cmd">${esc(bare[1])}</td>`
+  if (bare) return `<td class="cmd"${named}>${esc(bare[1])}</td>`
   const status = raw.match(/^(ok|warn|crit):\s*(.+)$/)
   if (status) {
-    return `<td class="num s-${status[1]}"><span class="status">${inline(status[2])}</span></td>`
+    return `<td class="num s-${status[1]}"${named}><span class="status">${inline(status[2])}</span></td>`
   }
-  if (/^[~≈]?\d/.test(raw)) return `<td class="num">${inline(raw)}</td>`
-  return `<td${first ? '' : ' class="no"'}>${inline(raw)}</td>`
+  if (/^[~≈]?\d/.test(raw)) return `<td class="num"${named}>${inline(raw)}</td>`
+  return `<td${first ? '' : ' class="no"'}${named}>${inline(raw)}</td>`
 }
 
 const table = (t) => {
   const head = t.header.map((h) => `<th>${inline(h.text)}</th>`).join('')
+  const labels = t.header.map((h) => plain(inline(h.text)))
   const rows = t.rows
     .map(
       (r) =>
-        `            <tr>${r.map((c, i) => cell(c.text, i === 0)).join('')}</tr>`,
+        `            <tr>${r.map((c, i) => cell(c.text, i === 0, labels[i])).join('')}</tr>`,
     )
     .join('\n')
   return `      <div class="scroll">

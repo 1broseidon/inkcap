@@ -21,7 +21,7 @@ import { imageSources, resolveImages } from './image.mjs'
 import { articleLd, faqLd, graph, llmsTxt, manifestJson, robotsTxt, sitemapXml, softwareLd } from './machine.mjs'
 import { GH_MARK, forgeOf } from './forge.mjs'
 import {
-  PAGE_SCRIPT, STARS_MIN, STARS_SCRIPT, commandsOf, esc, firstSentence, inline, jsonLd,
+  PAGE_SCRIPT, STARS_MIN, STARS_SCRIPT, commandsOf, figureOf, esc, firstSentence, inline, jsonLd,
   parseChangelog, parseManual, plain, renderSections, slug, useImages,
 } from './render.mjs'
 import { detectLanguage, detectLicense, exists, fileDate, gitRemote, gitVersion } from './repo.mjs'
@@ -42,6 +42,13 @@ const railList = (items) =>
   items.map((s) => `          <li><a href="${s.href}">${esc(s.label)}</a></li>`).join('\n')
 
 const section = (id, label, blocks) => ({ id, label, blocks })
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/* 2026-11-02 as 2 Nov 2026, the way the date reads in a sentence. */
+const longDate = (iso) => {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : iso
+}
 
 /* `moved` as the hosts with server-side redirects want it: Cloudflare and
  * Netlify read `_redirects`, Vercel reads `vercel.json`. */
@@ -137,6 +144,21 @@ export async function build(config, { site, manual: named, frozen = false, log =
   const doc = parseManual(md, name)
   const { title, intro, heroBlocks, heroCode, heroFigure, opening, sections, questions } = doc
   const guides = await Promise.all(rawGuides.map(parseGuide))
+
+  /* A guide that names the manual section it goes deeper on is linked from
+   * the end of that section, and links back to it. */
+  for (const s of sections) {
+    const deeper = guides.filter((g) => g.section === s.id)
+    if (!deeper.length) continue
+    s.blocks.push({
+      type: 'html',
+      raw: `<div class="guide-links">
+${deeper
+  .map((g) => `        <a class="guide-link" href="/guides/${g.slug}/"><span class="gl-k">Guide</span><span class="gl-t">${esc(g.title)}</span><span class="gl-d">${esc(plain(inline(g.description)))}</span></a>`)
+  .join('\n')}
+      </div>`,
+    })
+  }
   const updated = await fileDate(manualPath)
 
   /* The description is the manual's own opening paragraph, stripped of
@@ -191,8 +213,8 @@ export async function build(config, { site, manual: named, frozen = false, log =
     <a class="mark${markSvg ? ' has-mark' : ''}" href="/">${markSvg}${esc(title)}</a>${chip}${nav.length ? `\n    <nav>\n${nav.join('\n')}\n    </nav>` : ''}
   </header>`
 
-  const footer = `      <footer>
-        <span>${esc(title)}${version ? ` ${esc(version)}` : ''}</span>${license ? `\n        <span>${esc(license)} licensed</span>` : ''}${c.built ? `\n        <span>${esc(c.built)}</span>` : ''}
+  const footerWith = (extra = '') => `      <footer>
+        <span>${esc(title)}${version ? ` ${esc(version)}` : ''}</span>${license ? `\n        <span>${esc(license)} licensed</span>` : ''}${c.built ? `\n        <span>${esc(c.built)}</span>` : ''}${extra ? `\n        <span>${extra}</span>` : ''}
         <span><a href="https://github.com/1broseidon/inkcap">Published with inkcap</a></span>${
           c.family ? `\n        <span class="spacer"><a href="${esc(c.family.href)}">${esc(c.family.label)}</a></span>` : ''
         }
@@ -243,7 +265,7 @@ ${content}
    * is more than one thing to point at. A hero with a figure spans the page,
    * so the picture is read at the size it was taken, and the rail starts
    * below it. */
-  const page = ({ hero, blocks, rail, scripts = '', wide = false }) => `${
+  const page = ({ hero, blocks, rail, scripts = '', wide = false, after = '', kind = '', footer = '' }) => `${
     wide
       ? `  <div class="hero hero--wide">
 ${hero}
@@ -252,7 +274,7 @@ ${hero}
 `
       : ''
   }  <div class="layout">
-    <main class="col">
+    <main class="col${kind ? ` ${kind}` : ''}">
 ${
   wide
     ? ''
@@ -263,8 +285,8 @@ ${hero}
 `
 }
 ${renderSections(blocks)}
-
-${footer}
+${after}
+${footerWith(footer)}
 
     </main>${
       rail
@@ -353,9 +375,36 @@ ${railList(sections.map((s) => ({ href: `/#${s.id}`, label: s.label })))}
     const rank = (cl) => (c.clusters.includes(cl) ? c.clusters.indexOf(cl) : c.clusters.length)
     clusters.sort((a, b) => rank(a) - rank(b))
   }
-  const guidePages = guides.map((g) => {
+  const ordered = clusters.flatMap((cl) => guides.filter((g) => g.cluster === cl))
+  const clusterHref = (cl) => (cl ? `/guides/#${slug(cl)}` : '/guides/')
+  const guidePages = ordered.map((g, i) => {
     const pagePath = `/guides/${g.slug}/`
     const alternate = `/guides/${g.slug}.md`
+
+    /* One opening: the guide's answer-first paragraph is the lede, and the
+     * frontmatter description is kept for the index and the link card. */
+    const first = g.opening[0]
+    const answer = first?.type === 'paragraph' && !figureOf(first) ? first : null
+    const opening = answer ? g.opening.slice(1) : g.opening
+    const from = sections.find((s) => s.id === g.section)
+    const meta = [
+      g.reviewed ? `<span>Reviewed ${esc(longDate(g.reviewed))}</span>` : '',
+      from ? `<span>Goes deeper on <a href="/#${from.id}">${esc(from.label)}</a> in the manual</span>` : '',
+    ].filter(Boolean)
+    const onPage = g.sections.length > 1
+      ? `\n        <nav class="onpage" aria-label="On this page">${g.sections.map((s) => `<a href="#${s.id}">${esc(s.label)}</a>`).join('')}</nav>`
+      : ''
+
+    /* The way on: the next guide in the index's order, or back to the list. */
+    const prev = ordered[i - 1]
+    const next = ordered[i + 1]
+    const step = (cls, label, href, name) =>
+      `<a class="${cls}" href="${href}"><span class="pl">${label}</span><span class="pt">${esc(name)}</span></a>`
+    const pager = `      <nav class="pager" aria-label="More guides">
+        ${prev ? step('prev', 'Previous', `/guides/${prev.slug}/`, prev.title) : step('prev', 'Back to', '/', 'The manual')}
+        ${next ? step('next', 'Next', `/guides/${next.slug}/`, next.title) : step('next', 'Back to', '/guides/', 'All guides')}
+      </nav>`
+
     return {
       ...g,
       html: shell({
@@ -369,20 +418,25 @@ ${railList(sections.map((s) => ({ href: `/#${s.id}`, label: s.label })))}
           g.questions.length ? faqLd(g.questions) : null,
         ),
         content: page({
-          hero: `        <h1>${esc(g.title)}</h1>
+          hero: `        <p class="crumbs"><a href="/guides/">Guides</a>${
+            g.cluster ? `<span aria-hidden="true">/</span><a href="${clusterHref(g.cluster)}">${esc(g.cluster)}</a>` : ''
+          }</p>
+        <h1>${esc(g.title)}</h1>
         <div class="rule"></div>
-        <p class="lede">${inline(g.description)}</p>
-        <p class="sub">A guide to <a href="/">${esc(title)}</a>${g.reviewed ? ` · Reviewed ${esc(g.reviewed)}` : ''}${
-          c.editions ? ` · <a href="${alternate}">Markdown</a>` : ''
-        }</p>`,
-          blocks: [...(g.opening.length ? [section('', '', g.opening)] : []), ...g.sections],
+        <p class="lede">${inline(answer ? answer.text : g.description)}</p>${
+          meta.length ? `\n        <p class="meta">${meta.join('')}</p>` : ''
+        }${onPage}`,
+          blocks: [...(opening.length ? [section('', '', opening)] : []), ...g.sections],
+          after: pager,
+          kind: 'guide',
+          footer: c.editions ? `<a href="${alternate}">This guide as Markdown</a>` : '',
           rail: `        <p class="rail-label">${esc(title)}</p>
         <ol>
 ${railList([{ href: '/', label: 'Manual' }, { href: '/guides/', label: 'Guides' }])}
         </ol>${
           g.sections.length
             ? `
-        <p class="rail-label">Contents</p>
+        <p class="rail-label">On this page</p>
         <ol>
 ${railList(g.sections.map((s) => ({ href: `#${s.id}`, label: s.label })))}
         </ol>`
@@ -394,6 +448,11 @@ ${railList(g.sections.map((s) => ({ href: `#${s.id}`, label: s.label })))}
     }
   })
 
+  /* The index: one row per guide, the whole row a link, with the sections
+   * it covers, so the list reads as a table of contents rather than prose. */
+  const row = (g) => `        <li><a class="guide-row" href="/guides/${g.slug}/"><span class="gr-name">${esc(g.title)}</span>${
+    g.description ? `<span class="gr-desc">${esc(plain(inline(g.description)))}</span>` : ''
+  }${g.sections.length ? `<span class="gr-secs">${g.sections.map((s) => `<span>${esc(s.label)}</span>`).join('')}</span>` : ''}</a></li>`
   const guidesIndex = guides.length
     ? shell({
         pageTitle: `Guides — ${title}`,
@@ -402,21 +461,16 @@ ${railList(g.sections.map((s) => ({ href: `#${s.id}`, label: s.label })))}
         content: page({
           hero: `        <h1>Guides</h1>
         <div class="rule"></div>
-        <p class="lede">Short answers to specific questions about ${esc(title)}, kept beside <a href="/">the manual</a>.</p>${
-          c.editions
-            ? `\n        <p class="sub">Each guide is also served verbatim as Markdown, at its address with <code class="inline">.md</code> in place of the trailing slash.</p>`
-            : ''
-        }`,
+        <p class="lede">Short answers to specific questions about ${esc(title)}, kept beside <a href="/">the manual</a>.</p>`,
+          kind: 'guides-index',
+          footer: c.editions ? 'Each guide is also Markdown: its address with <code>.md</code>' : '',
           blocks: clusters.map((cl) =>
             section(cl ? slug(cl) : '', cl, [
               {
                 type: 'html',
-                raw: `<ul class="plain guides">
-${guides
-  .filter((g) => g.cluster === cl)
-  .map((g) => `        <li><a href="/guides/${g.slug}/">${esc(g.title)}</a>${g.description ? ` — ${inline(g.description)}` : ''}</li>`)
-  .join('\n')}
-      </ul>`,
+                raw: `<ol class="guide-rows">
+${guides.filter((g) => g.cluster === cl).map(row).join('\n')}
+      </ol>`,
               },
             ]),
           ),

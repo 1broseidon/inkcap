@@ -67,6 +67,7 @@ export async function parseGuide(g) {
     title: doc.title,
     description,
     cluster: data.cluster ?? '',
+    section: data.section ?? '',
     reviewed: data.reviewed ?? (await fileDate(g.file)),
     opening: doc.opening,
     sections: doc.sections,

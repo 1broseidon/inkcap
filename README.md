@@ -152,11 +152,12 @@ inkcap reads a few conventions in it to build the richer components.
 | ```` ```console title="X" ```` | the same, with a labelled copy bar; the copy drops the `$` prompts |
 | ```` ```console capture ```` | the same, and the build refreshes the output under each `$ tool …` prompt |
 | ```` ```yaml ````, ```` ```json ```` | a plain block, no shell highlighting |
-| `\| a \| b \|` | a table that scrolls instead of overflowing |
+| `\| a \| b \|` | a table that scrolls instead of overflowing; on a phone each row stacks, each value under its column's name |
 | a cell of `` `cmd` `` | a command cell |
 | a cell of `ok: 0`, `warn: 2`, `crit: 4` | a status cell, tinted by severity |
 | a cell starting with a digit, `~` or `≈` | a numeric cell |
 | a list whose items all open with `**Bad**` or `**Good**` | contrast pairs; each Bad starts a new pair |
+| `<kbd>Ctrl</kbd>` | a key cap |
 | `![alt](path "caption")` alone in its paragraph | a figure: sized from the file, linked to the full image, captioned by its title; see Images |
 
 The family sites keep the same spine, which is what makes them read as one:
@@ -233,6 +234,7 @@ guides/
 title: Using recoil with git worktrees
 description: One store, one project, however many worktrees.
 cluster: Workflows
+section: storage
 reviewed: 2026-09-21
 ---
 
@@ -248,14 +250,24 @@ recoil maps the worktree back to the clone it was created from.
 ...
 ```
 
-`title` and `description` are required; the description is the lede and the
-one-line summary everywhere the guide is listed. `cluster` groups guides on
-the index page; without it there is one list. `reviewed` is the date printed
-under the title and used as `dateModified`; without it the guide's last commit
-is. The body opens with a bold answer-first sentence and uses question-shaped
-`##` headings: each becomes a section, a rail entry, and a FAQPage entry
-whose answer is the section's first paragraph. A guide never re-documents a
-flag; it links to the manual's anchor.
+`title` and `description` are required. The description is the one-line
+summary everywhere the guide is listed, so keep it to about ten words.
+`cluster` groups guides on the index page; without it there is one list.
+`section` names the manual section the guide goes deeper on: that section ends
+with a link to the guide, and the guide links back, and `inkcap check` says
+when the section is gone. `reviewed` is the date printed under the title and
+used as `dateModified`; without it the guide's last commit is.
+
+The body opens with a bold answer-first paragraph, which is the guide's lede
+on its page; the description stands in when there is none. Its `##` headings
+become sections, rail entries and, on a phone, a row of links under the
+title. A question-shaped heading is also a FAQPage entry whose answer is the
+section's first paragraph. A guide never re-documents a flag; it links to the
+manual's anchor.
+
+The index lists each guide as a row: its title, its description and the
+names of its sections. A guide page shows where it sits (`Guides / Workflows`)
+and ends with the previous and next guide in the index's order.
 
 Every guide is printed as `/guides/<slug>/` in the same shell as the manual,
 as `/guides/<slug>.md` verbatim for agents, and listed on `/guides/`, in the

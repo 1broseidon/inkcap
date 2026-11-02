@@ -51,7 +51,7 @@ export async function check(c, { site, manual: named } = {}) {
   }]
   for (const g of await readGuides(guidesDir)) {
     const { data, body } = parseFrontmatter(g.text)
-    docs.push({ file: g.file, text: g.text, body, kind: 'guide', slug: g.slug, title: data.title, ids: idsOf(parseManual(body, '', { hero: false })) })
+    docs.push({ file: g.file, text: g.text, body, kind: 'guide', slug: g.slug, title: data.title, section: data.section, ids: idsOf(parseManual(body, '', { hero: false })) })
   }
   const readme = path.join(root, 'README.md')
   if (readme !== manualPath && (await exists(readme))) {
@@ -62,6 +62,9 @@ export async function check(c, { site, manual: named } = {}) {
 
   for (const d of docs) {
     const dir = path.dirname(d.file)
+    if (d.section && !docs[0].ids.has(d.section)) {
+      add(d.file, lineOf(d.text, `section: ${d.section}`), 'link', `section: ${d.section} is not a section of the manual`)
+    }
     const tokens = marked.lexer(d.body)
 
     /* Titles: headings, row names, copy-block labels and table heads. A

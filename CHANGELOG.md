@@ -6,6 +6,30 @@ All notable changes to inkcap are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-02
+
+Guides read like part of the manual, on a phone as much as on a desk.
+
+### Added
+
+- `section` in a guide's frontmatter names the manual section it goes deeper
+  on. That section ends with a link to the guide, the guide links back, and
+  `inkcap check` says when the section is gone.
+- A guide page shows where it sits (`Guides / Using it`), ends with the
+  previous and next guide in the index's order, and on a phone lists its
+  sections as a row of links under the title.
+- `<kbd>` prints as a key cap.
+
+### Changed
+
+- The guides index is a row per guide: its title, its description and the
+  names of its sections, the whole row one link.
+- A guide's answer-first paragraph is its lede, so a guide opens once. The
+  description stays the summary everywhere the guide is listed.
+- The note that each guide is also Markdown moved to the footer.
+- On a phone a table stacks: each row is a block, each value under its
+  column's name.
+
 ## [0.6.2] - 2026-11-02
 
 ### Fixed
