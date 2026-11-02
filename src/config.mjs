@@ -49,6 +49,9 @@ export function validate(raw = {}, file = 'inkcap.config.mjs') {
     if (raw[k] !== undefined && typeof raw[k] !== 'boolean') bad.push(`${k} (true or false)`)
   }
   if (raw.llmsExtra !== undefined && !Array.isArray(raw.llmsExtra)) bad.push('llmsExtra (an array of lines)')
+  if (raw.clusters !== undefined && !(Array.isArray(raw.clusters) && raw.clusters.every((x) => typeof x === 'string'))) {
+    bad.push('clusters (an array of cluster names)')
+  }
   if (raw.family !== undefined && raw.family !== false && !(raw.family?.label && raw.family?.href)) {
     bad.push('family (false, or { label, href })')
   }

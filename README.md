@@ -425,6 +425,7 @@ export default {
 | `legacyAnchors` | `{ '#old': '#new' }`, remapped before the page settles | |
 | `moved` | `{ '/old/path': '/#anchor' }`; when set, a `404.html` is written that carries the map, for hosts with no server-side redirects | no `404.html` |
 | `redirects` | the literal contents of a `_redirects` file, for hosts that honour one | no `_redirects` |
+| `clusters` | the order of the guide clusters on `/guides/`, by name | the order their first guide appears in |
 | `llmsExtra` | extra lines for the Links section of `llms.txt` | |
 | `notFoundExtra` | a sentence added to the 404 page | |
 | `family` | `{ label, href }`, the footer's far link; `false` removes it | chain.sh, the family inkcap was made for |

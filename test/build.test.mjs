@@ -290,6 +290,26 @@ test('an image alone in its paragraph is a figure, sized, copied and paired with
   }
 })
 
+test('the config orders guide clusters by name', async () => {
+  const dir = await scratch()
+  try {
+    await mkdir(path.join(dir, 'guides'), { recursive: true })
+    await writeFile(path.join(dir, 'MANUAL.md'), '# ordered\n\nA tool with guides.\n')
+    const guide = (title, cluster) => `---\ntitle: ${title}\ndescription: About ${title}.\ncluster: ${cluster}\n---\n\nBody.\n`
+    await writeFile(path.join(dir, 'guides', 'a-build.md'), guide('Build', 'Development'))
+    await writeFile(path.join(dir, 'guides', 'b-use.md'), guide('Use', 'Using it'))
+    await writeFile(path.join(dir, 'guides', 'c-misc.md'), guide('Misc', 'Other'))
+    const r = await build(validate({ clusters: ['Using it', 'Development'] }), { site: dir })
+    const index = await read(r.out, 'guides/index.html')
+    const at = (name) => index.indexOf(`<h2>${name}</h2>`)
+    assert.ok(at('Using it') > 0 && at('Using it') < at('Development'), 'named clusters come in the config\'s order')
+    assert.ok(at('Development') < at('Other'), 'an unnamed cluster follows')
+    assert.throws(() => validate({ clusters: 'Using it' }), /clusters/)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
 test('image sizes come from the header of each format', () => {
   assert.deepEqual(imageSize(png(640, 480)), { width: 640, height: 480 })
   const gif = Buffer.from('GIF89a\x40\x01\xf0\x00', 'latin1')

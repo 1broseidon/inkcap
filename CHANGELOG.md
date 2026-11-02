@@ -6,6 +6,13 @@ All notable changes to inkcap are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-02
+
+### Added
+
+- `clusters` in the config orders the guide clusters on `/guides/` by name.
+  A cluster it does not name follows, in the order its first guide appears.
+
 ## [0.4.0] - 2026-11-01
 
 Pictures. A manual can show the thing it documents, the way GitHub already

@@ -302,8 +302,14 @@ ${railList(sections.map((s) => ({ href: `/#${s.id}`, label: s.label })))}
 
   /* ---------- the guides ---------- */
 
+  /* Clusters come in the order the config names them; any it does not name
+   * follow, in the order their first guide appears. */
   const clusters = []
   for (const g of guides) if (!clusters.includes(g.cluster)) clusters.push(g.cluster)
+  if (c.clusters) {
+    const rank = (cl) => (c.clusters.includes(cl) ? c.clusters.indexOf(cl) : c.clusters.length)
+    clusters.sort((a, b) => rank(a) - rank(b))
+  }
   const guidePages = guides.map((g) => {
     const pagePath = `/guides/${g.slug}/`
     const alternate = `/guides/${g.slug}.md`
