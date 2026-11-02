@@ -1,15 +1,19 @@
+import { forgeOf } from './forge.mjs'
+
 /* The star count in the masthead is fetched once, by `inkcap stars`, and kept
  * in stars.json next to the config so the build itself never touches the
  * network. A missing token works until the anonymous rate limit does not. */
 
 export async function fetchStars(repo, { token = process.env.GITHUB_TOKEN } = {}) {
-  const headers = { 'User-Agent': 'inkcap', Accept: 'application/vnd.github+json' }
-  if (token) headers.Authorization = `Bearer ${token}`
-  const res = await fetch(`https://api.github.com/repos/${repo}`, { headers })
-  if (!res.ok) throw new Error(`GitHub API answered ${res.status} for ${repo}`)
-  const { stargazers_count } = await res.json()
-  if (typeof stargazers_count !== 'number') throw new Error(`no star count in the response for ${repo}`)
-  return stargazers_count
+  const forge = forgeOf(repo)
+  if (!forge?.api) throw new Error(`${forge?.host ?? repo} has no star count inkcap knows how to read`)
+  const headers = { 'User-Agent': 'inkcap', Accept: 'application/json' }
+  if (token && forge.kind === 'github') headers.Authorization = `Bearer ${token}`
+  const res = await fetch(forge.api, { headers })
+  if (!res.ok) throw new Error(`${forge.host} answered ${res.status} for ${forge.path}`)
+  const n = (await res.json())[forge.field]
+  if (typeof n !== 'number') throw new Error(`no star count in the response for ${forge.path}`)
+  return n
 }
 
 /* 1234 prints as 1.2k, 12345 as 12k; below a thousand the number stands. */

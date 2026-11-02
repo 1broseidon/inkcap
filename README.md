@@ -60,12 +60,12 @@ CHANGELOG.md                 optional, rendered at /changelog/
 LICENSE                      optional, named in the footer
 install.sh                   optional, served at /install and /install.sh
 guides/                      optional, one Markdown file per guide
-.github/workflows/docs.yml   the GitHub Pages workflow under Hosting, below
+.github/workflows/docs.yml   optional, the deploy for your host, under Hosting
 site/
   inkcap.config.mjs          everything that differs from the other sites
-  package.json               { "devDependencies": { "inkcap": "^0.3.0" } }
+  package.json               { "devDependencies": { "inkcap": "^0.6.0" } }
   .gitignore                 node_modules, dist
-  public/                    copied into dist/ untouched: favicon.svg, ...
+  public/                    copied into dist/ untouched: favicon.svg, mark.svg, ...
   fixture/                   optional, the files a capture sandbox starts with
   stars.json                 written by `inkcap stars`, committed
 ```
@@ -73,7 +73,7 @@ site/
 ```console
 $ cd site
 $ npm install --save-dev inkcap
-$ npx inkcap stars      # GitHub star count for the masthead, into stars.json
+$ npx inkcap stars      # the repository's star count, into stars.json
 $ npx inkcap            # render into dist/
 built dist/index.html  44.03 kB  ·  8 sections  ·  23 disclosures  ·  v0.15.0
 ```
@@ -91,6 +91,7 @@ built dist/index.html  44.03 kB  ·  8 sections  ·  23 disclosures  ·  v0.15.0
 
 ```
 inkcap build [manual] [--config file] [--frozen]
+inkcap check [manual] [--config file]
 inkcap stars [--config file]
 ```
 
@@ -118,7 +119,7 @@ written, no licence line that is a guess.
 | `## Questions` with `#### Question?` rows | FAQPage JSON-LD on the manual page |
 | ```` ```console capture ```` fences, and the tool on `PATH` | the outputs refreshed in place, see Captures |
 | `url` in the config, or `public/CNAME` | canonical and Open Graph links, `sitemap.xml`, the Sitemap line in `robots.txt`, absolute links in `llms.txt` and `manifest.json` |
-| a GitHub remote, or `repo` in the config | the masthead link, the star count, the repository in JSON-LD and `manifest.json` |
+| an origin remote on any host, or `repo` in the config | the masthead link, the repository in JSON-LD and `manifest.json`; on GitHub, GitLab and Codeberg or another Forgejo or Gitea, the star count |
 | a git tag | the version chip, `softwareVersion`, the version in `manifest.json` |
 | the manual's last commit | `dateModified`, `updated` in `manifest.json`, `lastmod` in `sitemap.xml` |
 | `CHANGELOG.md` in the root | `/changelog/`, and the version chip links there instead of the releases page |
@@ -129,6 +130,8 @@ written, no licence line that is a guess.
 | `public/` in the site directory | copied into `dist/` untouched; a file there wins over anything the build would write at the same path |
 | `stars.json` in the site directory | the star count baked into the masthead |
 | an image the manual or a guide shows | the file copied to its path on the site, its size in the `<img>`, and its `.phone` crop for small screens |
+| a figure in the hero | the page leads with it at full width, the rail below it; it is the card a shared link unfurls to |
+| `public/mark.svg` in the site directory | the mark beside the name in the masthead, in the accent when it is drawn in `currentColor` |
 
 ## Writing
 
@@ -144,6 +147,7 @@ inkcap reads a few conventions in it to build the richer components.
 | `### Heading` | a mono subhead |
 | `#### name — note` | a collapsible row; the text after ` — ` is the muted tail |
 | `> quote` | an accent callout |
+| `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]` | a labelled callout of that kind, as GitHub prints it |
 | ```` ```console ```` | a terminal block: prompts tinted, `#` comments dimmed, `→` lines dimmed, `→ exit N` lines warned |
 | ```` ```console title="X" ```` | the same, with a labelled copy bar; the copy drops the `$` prompts |
 | ```` ```console capture ```` | the same, and the build refreshes the output under each `$ tool …` prompt |
@@ -203,8 +207,11 @@ A file beside it named with `.phone` before the extension
 (`docs/screens/desk.phone.webp`) is served instead on small screens: a crop
 of the part that matters, rather than the whole screen at a third of its size.
 
-A figure in the hero, after the opening paragraphs, loads at once; every other
-figure loads as it nears the screen. An image inside a sentence stays inline.
+A figure in the hero, after the opening paragraphs, spans the whole page, so
+a screenshot is read at the size it was taken, and the contents rail starts
+below it. It loads at once, and it is the picture a shared link unfurls to
+unless `ogImage` names another. Every other figure keeps the column and
+loads as it nears the screen. An image inside a sentence stays inline.
 A path that lands in `public/` is served where `public/` puts it. A file that
 is missing is left as written, and the build names it.
 
@@ -306,6 +313,30 @@ happens on the author's machine, the manual is rewritten in place, and
 `git diff` is the review. `inkcap build --frozen` never writes: it runs the
 captures, prints which blocks drifted, and exits non-zero, which is the check
 a release workflow wants. Guides take captures the same way.
+
+## Check
+
+`inkcap check` reads what the build reads and says what would print wrong,
+each finding at the file and line where it was written:
+
+```console
+$ npx inkcap check
+../MANUAL.md:155  title  "Watching and taking control" is 4 words; titles are 1 to 3
+../MANUAL.md:262  link   /#watching has no section or row in the manual
+../MANUAL.md:24   image  docs/screens/desk.png does not exist
+../MANUAL.md:13   drift  pins 0.11.0; the latest tag is v0.12.0
+→ 4 findings
+```
+
+| Kind | What it finds |
+| --- | --- |
+| `title` | Headings, row names, copy-block labels and table heads over `titleWords` words, three unless the config says otherwise. A guide's question headings are exempt |
+| `link` | Links to a section, row, guide, changelog or file in `public/` or the repository that is not there. An id in `legacyAnchors` still lands |
+| `image` | Images the manual, a guide or the README shows that do not exist |
+| `drift` | Versions pinned behind the latest tag, written as `name:1.2.3`, `name@1.2.3` or `--version 1.2.3` |
+
+It exits 1 when there is a finding, so a workflow can run it before the
+build. It writes nothing and needs no network.
 
 ## Agent editions
 
@@ -411,7 +442,7 @@ export default {
 | --- | --- | --- |
 | `name` | the tool's name | the `#` heading |
 | `url` | the site's origin | `public/CNAME`; otherwise no canonical, Open Graph or sitemap |
-| `repo` | `owner/name` on GitHub | the `origin` remote; otherwise no masthead link or star count |
+| `repo` | `owner/name` on GitHub, or the repository's URL on any host | the `origin` remote; otherwise no masthead link or star count |
 | `tagline` | completes the `<title>` | the first sentence of the lede when it is short, else the name alone |
 | `built` | the footer line after the licence | omitted |
 | `license` | the footer's licence line, `MIT` | read from `LICENSE`; otherwise omitted |
@@ -421,7 +452,9 @@ export default {
 | `changelog` | path to a Keep-a-Changelog file | `CHANGELOG.md` in the root |
 | `guides` | path to the guides directory | `guides/` in the root |
 | `version` | the version chip | `git describe --tags` |
-| `ogImage` | site-relative path of the Open Graph image | no image tags |
+| `ogImage` | site-relative path of the Open Graph image | the hero figure; otherwise no image tags |
+| `host` | `github`, `cloudflare`, `netlify`, `vercel` or `static`: which redirect files `moved` becomes | the `404.html` map alone, which works on any host |
+| `titleWords` | the most words `inkcap check` allows in a title; `false` switches the check off | 3 |
 | `legacyAnchors` | `{ '#old': '#new' }`, remapped before the page settles | |
 | `moved` | `{ '/old/path': '/#anchor' }`; when set, a `404.html` is written that carries the map, for hosts with no server-side redirects | no `404.html` |
 | `redirects` | the literal contents of a `_redirects` file, for hosts that honour one | no `_redirects` |
@@ -461,23 +494,27 @@ so the page stays current between builds.
 
 ## Hosting
 
-The output is a static directory. GitHub Pages is the home it is made for:
-the workflow below is the whole deployment, saved as
-`.github/workflows/docs.yml`, with the repo's Pages source set to GitHub
-Actions and the custom domain set in the repo's Pages settings. The version
-chip comes from git tags, so it needs the full history and a run on each
-release; the star count is fetched with the workflow's own token and kept
-live by the page itself. A release published by another workflow with the
-default `GITHUB_TOKEN` does not fire `release: published`; that workflow can
-run `gh workflow run docs.yml` instead.
+`dist/` is the whole site: static files, no server code, no build step on the
+host. Any host that serves a directory serves it, and each needs only the
+few lines below. Point the domain at it the way that host's own guide says;
+inkcap prints nothing host-specific unless `host` asks for redirect files.
+
+Every host gets `moved` as a map in `404.html`, which works anywhere a 404
+page is served. With `host` set, it also becomes that host's own redirects:
+`_redirects` for Cloudflare and Netlify, `vercel.json` for Vercel.
+
+The version chip comes from git tags, so a build needs the repository's tags
+and a run on each release. The star count is fetched from the repository's
+host by `inkcap stars` and kept live by the page itself.
+
+### GitHub Pages
+
+Set the repository's Pages source to GitHub Actions and save this as
+`.github/workflows/docs.yml`:
 
 ```yaml
 name: Deploy Docs
 
-# example.sh is a GitHub Pages site printed by inkcap from MANUAL.md. The
-# version chip comes from git tags, so the workflow also runs when a release
-# is published; the star count is baked in as a fallback and kept live by
-# the page itself.
 on:
   push:
     branches: [main]
@@ -529,20 +566,50 @@ jobs:
         uses: actions/deploy-pages@v4
 ```
 
-Any static host serves the same directory. **Cloudflare Workers**, for
-instance, deployed by hand with `wrangler deploy` from `site/`:
+A release published by another workflow with the default `GITHUB_TOKEN` does
+not fire `release: published`; that workflow can run `gh workflow run
+docs.yml` instead. To deploy a release tag, allow tags in the `github-pages`
+environment's deployment rules.
+
+### Cloudflare
+
+Workers, deployed with `wrangler deploy` from `site/`, with `host:
+'cloudflare'` in the config:
 
 ```jsonc
 {
   "name": "example-sh",
   "compatibility_date": "2026-09-01",
-  "assets": { "directory": "./dist", "not_found_handling": "none" },
+  "assets": { "directory": "./dist", "not_found_handling": "404-page" },
   "routes": [{ "pattern": "example.sh", "custom_domain": true }]
 }
 ```
 
-A `redirects` string in the config becomes the `_redirects` file Workers
-honours; a `moved` map becomes the `404.html` GitHub Pages serves.
+Pages, connected to the repository: build command
+`cd site && npm ci && npm run build`, output directory `site/dist`.
+
+### Netlify
+
+`netlify.toml` in the root, with `host: 'netlify'` in the config:
+
+```toml
+[build]
+  base = "site"
+  command = "npm run build"
+  publish = "dist"
+```
+
+### Vercel
+
+A project with `site` as its root directory, `npm run build` as its build
+command and `dist` as its output directory, with `host: 'vercel'` in the
+config.
+
+### Any server
+
+Copy the directory: `rsync -a site/dist/ server:/srv/example.sh/`. Serve
+`404.html` for missing paths so `moved` and a mistyped address both land
+somewhere honest.
 
 ## In use
 

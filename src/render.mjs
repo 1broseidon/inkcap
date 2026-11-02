@@ -10,6 +10,8 @@
  *   ### Heading             a mono subhead
  *   #### name — note        a collapsible row; text after " — " is the muted tail
  *   > blockquote            an accent callout
+ *   > [!WARNING]            a callout of that kind: NOTE, TIP, IMPORTANT,
+ *                           WARNING or CAUTION, as GitHub prints them
  *   ```console              a terminal block: prompts tinted, comments dimmed
  *   ```console title="X"    the same, with a labelled copy bar
  *   ```console capture      the same; the build refreshes the output (capture.mjs)
@@ -19,7 +21,8 @@
  *   - **Bad** … / **Good**  a contrast pair
  *   ![alt](src "caption")   alone in its paragraph: a figure, sized from the
  *                           file, linked to the full image, captioned by its
- *                           title; a `name.phone.ext` beside it is the phone crop
+ *                           title; a `name.phone.ext` beside it is the phone crop;
+ *                           in the hero, it spans the page and the rail starts below
  *
  * Read on GitHub, all of that is just a well-formed Markdown document. marked
  * runs at build time only — the page ships zero framework JavaScript.
@@ -185,6 +188,29 @@ const figure = (f, hero) => {
       </figure>`
 }
 
+/* ---------- callouts ---------- */
+
+/* GitHub's alerts: a blockquote whose first line is `[!NOTE]`, `[!TIP]`,
+ * `[!IMPORTANT]`, `[!WARNING]` or `[!CAUTION]`. GitHub prints them as
+ * labelled callouts, so the page prints the same five, in the house tints. */
+const KINDS = { note: 'Note', tip: 'Tip', important: 'Important', warning: 'Warning', caution: 'Caution' }
+const ALERT = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i
+
+export const calloutOf = (tok) => {
+  const first = tok.tokens?.[0]
+  if (first?.type !== 'paragraph') return null
+  const m = first.text.match(ALERT)
+  return m ? m[1].toLowerCase() : null
+}
+
+/* The blockquote's blocks without the marker line. */
+const unmark = (tok) => {
+  const [first, ...rest] = tok.tokens
+  const text = first.text.replace(ALERT, '')
+  if (!text.trim()) return rest
+  return [{ ...first, text, tokens: marked.Lexer.lexInline(text) }, ...rest]
+}
+
 /* ---------- block rendering ---------- */
 
 const cell = (raw, first) => {
@@ -257,10 +283,19 @@ export const block = (tok, note, hero = false) => {
     }
     case 'table':
       return table(tok)
-    case 'blockquote':
-      return `      <div class="callout">
+    case 'blockquote': {
+      const kind = calloutOf(tok)
+      if (!kind) {
+        return `      <div class="callout">
 ${tok.tokens.map((t) => block(t, false)).join('\n')}
       </div>`
+      }
+      const body = unmark(tok)
+      return `      <div class="callout k-${kind}">
+        <p class="k">${KINDS[kind]}</p>
+${body.map((t) => block(t, false)).join('\n')}
+      </div>`
+    }
     case 'list':
       if (tok.items.length && tok.items.every((i) => PAIR.test(i.text))) return pairs(tok.items)
       return `      <ul class="plain">
@@ -315,7 +350,7 @@ const tokenText = (tok) => {
     case 'list':
       return tok.items.map((i) => plain(inline(i.text))).join(' ')
     case 'blockquote':
-      return tok.tokens.map(tokenText).filter(Boolean).join(' ')
+      return (calloutOf(tok) ? unmark(tok) : tok.tokens).map(tokenText).filter(Boolean).join(' ')
     case 'table':
       return ''
     default:
@@ -364,6 +399,7 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
   const heroCode = []
   const opening = []
   const sections = []
+  let heroFigure = null
   let current = null
   let disc = null
 
@@ -385,7 +421,10 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
       continue
     }
     if (!current) {
-      if (hero && figureOf(tok)) heroBlocks.push(block(tok, false, true))
+      if (hero && figureOf(tok)) {
+        heroBlocks.push(block(tok, false, true))
+        heroFigure ??= figureOf(tok).src
+      }
       else if (hero && tok.type === 'paragraph') intro.push(inline(tok.text))
       else if (hero && tok.type === 'code') {
         heroBlocks.push(block(tok, false))
@@ -431,7 +470,7 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
     .flatMap((s) => s.items.map((d) => ({ question: d.text, answer: textOf(d.blocks) })))
     .filter((q) => q.answer)
 
-  return { title, intro, heroBlocks, heroCode, opening, sections, questions }
+  return { title, intro, heroBlocks, heroCode, heroFigure, opening, sections, questions }
 }
 
 /* The changelog is the repo's own CHANGELOG.md, rendered with the same shell.
@@ -457,20 +496,21 @@ export function parseChangelog(src) {
 
 /* ---------- the shell's own pieces ---------- */
 
-export const GH_MARK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>`
-
-/* The baked count from stars.json is the fallback; each visit asks GitHub for
- * the current number so the page stays live between builds. Anonymous API
- * calls are limited per visitor, not per site, and a miss changes nothing. */
-export const STARS_SCRIPT = (repo) => `<script>
-fetch('https://api.github.com/repos/${repo}')
+/* The baked count from stars.json is the fallback; each visit asks the
+ * repository's host for the current number so the page stays live between
+ * builds. Anonymous API calls are limited per visitor, not per site, and a
+ * miss changes nothing. Counts under ten stay hidden: a small number says
+ * less than no number. */
+export const STARS_MIN = 10
+export const STARS_SCRIPT = (forge) => `<script>
+fetch(${JSON.stringify(forge.api)})
   .then((r) => (r.ok ? r.json() : null))
   .then((d) => {
-    if (!d || typeof d.stargazers_count !== 'number') return
+    const n = d && d[${JSON.stringify(forge.field)}]
+    if (typeof n !== 'number' || n < ${STARS_MIN}) return
     const gh = document.querySelector('.masthead .gh')
     let el = gh.querySelector('.stars')
     if (!el) { el = document.createElement('span'); el.className = 'stars'; gh.appendChild(el) }
-    const n = d.stargazers_count
     el.textContent = n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\\.0$/, '') + 'k' : String(n)
   })
   .catch(() => {})

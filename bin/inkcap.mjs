@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* inkcap build [manual] [--config file] [--frozen]   render the site into dist/
+ * inkcap check [manual] [--config file]               what would print wrong
  * inkcap stars [--config file]                        refresh the star count
  *
  * The config is ./inkcap.config.mjs when it exists, or the file named with
@@ -11,6 +12,7 @@ import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from '../src/build.mjs'
+import { check } from '../src/check.mjs'
 import { findManual, loadConfig, validate } from '../src/config.mjs'
 import { gitRemote } from '../src/repo.mjs'
 import { fetchStars } from '../src/stars.mjs'
@@ -32,10 +34,10 @@ const has = (name) => {
 const configArg = flag('--config')
 const frozen = has('--frozen')
 if (has('--help') || has('-h')) {
-  console.log('inkcap build [manual] [--config file] [--frozen]\ninkcap stars [--config file]')
+  console.log('inkcap build [manual] [--config file] [--frozen]\ninkcap check [manual] [--config file]\ninkcap stars [--config file]')
   process.exit(0)
 }
-const command = ['build', 'stars'].includes(args[0]) ? args.shift() : 'build'
+const command = ['build', 'check', 'stars'].includes(args[0]) ? args.shift() : 'build'
 const named = args.shift()
 if (args.length) {
   console.error(`inkcap: unexpected argument ${args[0]}`)
@@ -58,10 +60,17 @@ const site = configArg || existsSync(configPath) ? path.dirname(configPath) : pr
 const kb = (n) => `${(n / 1024).toFixed(2)} kB`
 
 try {
-  if (command === 'stars') {
+  if (command === 'check') {
+    const findings = await check(config, { site, manual: named })
+    for (const f of findings) {
+      console.log(`${path.relative(process.cwd(), f.file)}:${f.line}  ${f.kind.padEnd(5)}  ${f.message}`)
+    }
+    console.log(findings.length ? `→ ${findings.length} finding${findings.length === 1 ? '' : 's'}` : 'nothing to fix')
+    process.exit(findings.length ? 1 : 0)
+  } else if (command === 'stars') {
     const manual = await findManual(config, site, named)
     const repo = config.repo || gitRemote(path.dirname(manual))
-    if (!repo) throw new Error('no repository: set `repo` in the config or add a GitHub origin remote')
+    if (!repo) throw new Error('no repository: set `repo` in the config or add an origin remote')
     const file = path.resolve(site, config.stars)
     const stars = await fetchStars(repo)
     await writeFile(file, JSON.stringify({ stars, updated: new Date().toISOString().slice(0, 10) }, null, 2) + '\n')

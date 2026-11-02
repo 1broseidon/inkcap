@@ -47,7 +47,7 @@ test('a fixture manual renders into every output inkcap promises', async () => {
     assert.match(html, /<p class="sub">For people/)
     assert.match(html, /<a class="ver" href="\/changelog\/">v1\.2\.3<\/a>/)
     assert.match(html, /<a href="\/guides\/">guides<\/a>\s*<a href="\/#install">install<\/a>/, 'the masthead links the guides when there are some')
-    assert.match(html, /<a class="gh" href="https:\/\/github\.com\/1broseidon\/fixture">/, 'repo accepts a full GitHub URL')
+    assert.match(html, /<a class="gh" href="https:\/\/github\.com\/1broseidon\/fixture" aria-label="Source on GitHub">/, 'repo accepts a full GitHub URL')
     assert.match(html, /<details id="homebrew">\s*<summary>Homebrew <span class="sm">macOS and Linux<\/span><\/summary>/, 'a disclosure carries the slug of its name')
     assert.match(html, /<details id="does-fixture-need-a-config-file">/)
     assert.match(html, /<td class="num s-crit"><span class="status">4<\/span><\/td>/)
@@ -63,7 +63,7 @@ test('a fixture manual renders into every output inkcap promises', async () => {
     assert.match(html, /<span>MIT licensed<\/span>\s*<span>Built for the test suite<\/span>/, 'the licence is read from LICENSE')
     assert.match(html, /<span><a href="https:\/\/github\.com\/1broseidon\/inkcap">Published with inkcap<\/a><\/span>/)
     assert.match(html, /<meta name="generator" content="inkcap \d+\.\d+\.\d+">/)
-    assert.match(html, /fetch\('https:\/\/api\.github\.com\/repos\/1broseidon\/fixture'\)/, 'the star count refreshes in the browser')
+    assert.match(html, /fetch\("https:\/\/api\.github\.com\/repos\/1broseidon\/fixture"\)/, 'the star count refreshes in the browser')
     assert.match(html, /if \(el && el\.tagName === 'DETAILS'\) el\.open = true/, 'a link to a disclosure opens it')
 
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)[1])
@@ -271,7 +271,8 @@ test('an image alone in its paragraph is a figure, sized, copied and paired with
     const logged = []
     const r = await build(validate({}), { site: dir, log: (m) => logged.push(m) })
     const html = await read(r.out, 'index.html')
-    const hero = html.slice(html.indexOf('<div class="hero">'), html.indexOf('<section'))
+    const hero = html.slice(html.indexOf('<div class="hero hero--wide">'), html.indexOf('<div class="layout">'))
+    assert.ok(hero.length > 0, 'a hero with a figure spans the page, ahead of the layout and its rail')
     assert.match(hero, /<figure class="figure">\s*<a href="\/docs\/desk\.png"><picture><source media="\(max-width: 34rem\)" srcset="\/docs\/desk\.phone\.png" width="960" height="720"><img src="\/docs\/desk\.png" alt="The desk at work" width="1920" height="1080" fetchpriority="high" decoding="async"><\/picture><\/a>\s*<figcaption>The desk, <em>mid-job<\/em>\.<\/figcaption>/, 'a hero figure loads at once, with its phone crop and caption')
     assert.doesNotMatch(hero, /class="sub"/, 'the image is not hero copy')
     assert.match(html, /<a href="\/og\/card\.png"><img src="\/og\/card\.png" alt="A card" width="1200" height="630" loading="lazy" decoding="async"><\/a>/, 'a path inside public/ is served where public/ puts it')
@@ -285,6 +286,8 @@ test('an image alone in its paragraph is a figure, sized, copied and paired with
     const manifest = JSON.parse(await read(r.out, 'manifest.json'))
     assert.equal(manifest.sections[0].summary, 'The overview opens after its picture.', 'a figure is never a summary')
     assert.match(await read(r.out, 'llms-full.txt'), /!\[The desk at work\]\(docs\/desk\.png/, 'the agent edition keeps the Markdown')
+    const withUrl = await build(validate({ url: 'https://pictured.example' }), { site: dir, log: () => {} })
+    assert.match(await read(withUrl.out, 'index.html'), /<meta property="og:image" content="https:\/\/pictured\.example\/docs\/desk\.png">\n<meta name="twitter:card" content="summary_large_image">/, 'the hero figure is the card a shared link unfurls to')
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
@@ -305,6 +308,115 @@ test('the config orders guide clusters by name', async () => {
     assert.ok(at('Using it') > 0 && at('Using it') < at('Development'), 'named clusters come in the config\'s order')
     assert.ok(at('Development') < at('Other'), 'an unnamed cluster follows')
     assert.throws(() => validate({ clusters: 'Using it' }), /clusters/)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('callouts print the five GitHub alert kinds; a plain quote stays a callout', async () => {
+  const dir = await scratch()
+  try {
+    await writeFile(
+      path.join(dir, 'MANUAL.md'),
+      [
+        '# alerts', '', 'A tool with warnings.', '', '## Security', '',
+        '> [!WARNING]', '> Jobs can reach the browser.', '',
+        '> [!NOTE]', '> The container is the boundary.', '> It is the only one.', '',
+        '> A plain quote.', '',
+      ].join('\n'),
+    )
+    const r = await build(validate({}), { site: dir })
+    const html = await read(r.out, 'index.html')
+    assert.match(html, /<div class="callout k-warning">\s*<p class="k">Warning<\/p>\s*<p>Jobs can reach the browser\.<\/p>/)
+    assert.match(html, /<div class="callout k-note">\s*<p class="k">Note<\/p>\s*<p>The container is the boundary\.\nIt is the only one\.<\/p>/)
+    assert.match(html, /<div class="callout">\s*<p>A plain quote\.<\/p>/)
+    assert.doesNotMatch(html, /\[!WARNING\]/)
+    const manifest = JSON.parse(await read(r.out, 'manifest.json'))
+    assert.equal(manifest.sections[0].summary, undefined, 'a callout is not a summary')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('the repository can live on any host, and the masthead says so', async () => {
+  const { forgeOf, repoUrl } = await import('../src/forge.mjs')
+  assert.equal(repoUrl('1broseidon/inkcap'), 'https://github.com/1broseidon/inkcap')
+  assert.equal(repoUrl('git@codeberg.org:me/tool.git'), 'https://codeberg.org/me/tool')
+  assert.equal(repoUrl('https://gitlab.com/group/sub/tool.git/'), 'https://gitlab.com/group/sub/tool')
+  assert.equal(forgeOf('https://gitlab.com/group/sub/tool').api, 'https://gitlab.com/api/v4/projects/group%2Fsub%2Ftool')
+  assert.equal(forgeOf('https://codeberg.org/me/tool').file('CHANGELOG.md'), 'https://codeberg.org/me/tool/src/branch/main/CHANGELOG.md')
+  assert.equal(forgeOf('https://git.sr.ht/~me/tool').api, '', 'a host without a known API has no star count')
+  assert.equal(validate({ repo: 'https://github.com/a/b.git' }).repo, 'a/b')
+  assert.equal(validate({ repo: 'https://codeberg.org/me/tool' }).repo, 'https://codeberg.org/me/tool')
+
+  const dir = await scratch()
+  try {
+    await writeFile(path.join(dir, 'MANUAL.md'), '# elsewhere\n\nA tool kept on Codeberg.\n')
+    await writeFile(path.join(dir, 'stars.json'), '{ "stars": 7 }')
+    const r = await build(validate({ repo: 'https://codeberg.org/me/tool' }), { site: dir })
+    const html = await read(r.out, 'index.html')
+    assert.match(html, /<a class="gh" href="https:\/\/codeberg\.org\/me\/tool">\s*source\s*<\/a>/, 'another host is named in words, and seven stars stay hidden')
+    assert.match(html, /fetch\("https:\/\/codeberg\.org\/api\/v1\/repos\/me\/tool"\)/)
+    assert.match(html, /d\["stars_count"\]/)
+    const manifest = JSON.parse(await read(r.out, 'manifest.json'))
+    assert.equal(manifest.repo, 'https://codeberg.org/me/tool')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('a mark in public/ sits beside the name; moved paths become the host\'s own redirects', async () => {
+  const dir = await scratch()
+  try {
+    await mkdir(path.join(dir, 'public'), { recursive: true })
+    await writeFile(path.join(dir, 'public', 'mark.svg'), '<?xml version="1.0"?>\n<!-- the mark -->\n<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="currentColor"/></svg>\n')
+    await writeFile(path.join(dir, 'MANUAL.md'), '# marked\n\nA tool with a mark.\n')
+    const moved = { '/guide/start': '/#quickstart' }
+    const netlify = await build(validate({ moved, host: 'netlify' }), { site: dir })
+    const html = await read(netlify.out, 'index.html')
+    assert.match(html, /<a class="mark has-mark" href="\/"><svg aria-hidden="true" focusable="false" viewBox="0 0 10 10">.*<\/svg>marked<\/a>/)
+    assert.equal(await read(netlify.out, '_redirects'), '/guide/start /#quickstart 301\n')
+    assert.match(await read(netlify.out, '404.html'), /"\/guide\/start":"\/#quickstart"/, 'the 404 map is written for every host')
+    const vercel = await build(validate({ moved, host: 'vercel' }), { site: dir })
+    assert.deepEqual(JSON.parse(await read(vercel.out, 'vercel.json')), {
+      redirects: [{ source: '/guide/start', destination: '/#quickstart', permanent: true }],
+    })
+    assert.throws(() => validate({ host: 'geocities' }), /host/)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('check names long titles, links that do not land, missing images and old pins', async () => {
+  const { check } = await import('../src/check.mjs')
+  const dir = await scratch()
+  try {
+    await mkdir(path.join(dir, 'guides'), { recursive: true })
+    await writeFile(
+      path.join(dir, 'MANUAL.md'),
+      [
+        '# checked', '', 'A tool to check.', '',
+        '## Install', '', 'Run `ghcr.io/me/checked:0.11.0` or see [the viewer](#viewer) and [watching](/#watching).', '',
+        '## Watching and taking control', '', '![Gone](docs/gone.png)', '',
+        'Read [passkeys](/guides/passkey/), [secrets](/guides/secrets/#kinds) and [notes](docs/notes.md).', '',
+        '#### capture — screenshots and the accessibility tree', '', 'Rows count their name only.', '',
+        '| Flag | What it does here |', '| --- | --- |', '| a | b |', '',
+      ].join('\n'),
+    )
+    await writeFile(path.join(dir, 'guides', 'secrets.md'), '---\ntitle: Secrets\ndescription: How.\n---\n\n## Kinds\n\nText.\n\n## Where does a value go?\n\nQuestions may run long.\n')
+    const findings = await check(validate({ version: 'v0.12.0' }), { site: dir })
+    const seen = findings.map((f) => `${path.basename(f.file)}:${f.line} ${f.kind} ${f.message}`)
+    assert.deepEqual(seen, [
+      'MANUAL.md:7 link #viewer has no section or row on this page',
+      'MANUAL.md:7 link /#watching has no section or row in the manual',
+      'MANUAL.md:7 drift pins 0.11.0; the latest tag is v0.12.0',
+      'MANUAL.md:9 title "Watching and taking control" is 4 words; titles are 1 to 3',
+      'MANUAL.md:11 image docs/gone.png does not exist',
+      'MANUAL.md:13 link /guides/passkey/ has no guide',
+      'MANUAL.md:13 link docs/notes.md is not a file in the repository',
+      'MANUAL.md:19 title "What it does here" is 4 words; titles are 1 to 3',
+    ])
+    assert.deepEqual(await check(validate({ version: 'v0.12.0', titleWords: false, legacyAnchors: { '#viewer': '#install' } }), { site: dir }).then((f) => f.filter((x) => x.kind === 'title' || /#viewer/.test(x.message))), [], 'titleWords: false switches titles off, and a legacy anchor still lands')
   } finally {
     await rm(dir, { recursive: true, force: true })
   }

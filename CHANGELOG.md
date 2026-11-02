@@ -6,6 +6,40 @@ All notable changes to inkcap are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-02
+
+One line still prints a manual. What changed is what the manual can show,
+what inkcap can tell you before you publish, and that it no longer assumes
+the code or the site lives on GitHub.
+
+### Added
+
+- Wide figures. A figure in the hero spans the page, so a screenshot is read
+  at the size it was taken, and the contents rail starts below it.
+- Callouts. GitHub's alert syntax, `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`,
+  `[!WARNING]` and `[!CAUTION]`, prints as a labelled callout of that kind,
+  the same five GitHub prints.
+- `inkcap check` finds titles over three words (`titleWords` in the config),
+  links to sections, rows, guides and files that are not there, missing
+  images, and versions pinned behind the latest tag. It exits 1 on a finding.
+- `public/mark.svg` sits beside the name in the masthead, in the accent when
+  it is drawn in `currentColor`.
+- The hero figure is the card a shared link unfurls to when `ogImage` is not
+  set.
+- `host` in the config: `cloudflare` and `netlify` turn `moved` into a
+  `_redirects` file, `vercel` into `vercel.json`. Every host keeps the
+  `404.html` map.
+
+### Changed
+
+- The repository can live on any host. `repo` takes `owner/name` on GitHub or
+  a URL anywhere, and an origin remote on any host is read. GitHub, GitLab,
+  and Codeberg or another Forgejo or Gitea get a star count; any other host
+  gets a `source` link.
+- A star count under ten is not shown.
+- Hosting in the manual is a recipe per host: GitHub Pages, Cloudflare,
+  Netlify, Vercel and any server.
+
 ## [0.5.0] - 2026-11-02
 
 ### Added

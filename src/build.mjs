@@ -19,8 +19,9 @@ import { findManual } from './config.mjs'
 import { parseGuide, readGuides } from './guides.mjs'
 import { imageSources, resolveImages } from './image.mjs'
 import { articleLd, faqLd, graph, llmsTxt, manifestJson, robotsTxt, sitemapXml, softwareLd } from './machine.mjs'
+import { GH_MARK, forgeOf } from './forge.mjs'
 import {
-  GH_MARK, PAGE_SCRIPT, STARS_SCRIPT, commandsOf, esc, firstSentence, inline, jsonLd,
+  PAGE_SCRIPT, STARS_MIN, STARS_SCRIPT, commandsOf, esc, firstSentence, inline, jsonLd,
   parseChangelog, parseManual, plain, renderSections, slug, useImages,
 } from './render.mjs'
 import { detectLanguage, detectLicense, exists, fileDate, gitRemote, gitVersion } from './repo.mjs'
@@ -42,6 +43,17 @@ const railList = (items) =>
 
 const section = (id, label, blocks) => ({ id, label, blocks })
 
+/* `moved` as the hosts with server-side redirects want it: Cloudflare and
+ * Netlify read `_redirects`, Vercel reads `vercel.json`. */
+const redirectsFile = (moved) =>
+  Object.entries(moved).map(([from, to]) => `${from} ${to} 301`).join('\n') + '\n'
+const vercelJson = (moved) =>
+  JSON.stringify(
+    { redirects: Object.entries(moved).map(([source, destination]) => ({ source, destination, permanent: true })) },
+    null,
+    2,
+  ) + '\n'
+
 export async function build(config, { site, manual: named, frozen = false, log = () => {} } = {}) {
   const c = config
   const at = (p) => path.resolve(site, p)
@@ -62,6 +74,7 @@ export async function build(config, { site, manual: named, frozen = false, log =
   const h1 = committed.match(/^#\s+(.+?)\s*$/m)?.[1] ?? ''
   const name = c.name || h1 || path.basename(root)
   const repo = c.repo || gitRemote(root)
+  const forge = forgeOf(repo)
   const version = c.version ?? gitVersion(root)
   const license = c.license ?? (await detectLicense(root))
   const language = c.language ?? (await detectLanguage(root))
@@ -76,6 +89,12 @@ export async function build(config, { site, manual: named, frozen = false, log =
       : ''
   const guidesDir = c.guides ? at(c.guides) : inRoot('guides')
   const hasFavicon = await exists(at(path.join(c.public, 'favicon.svg')))
+  /* public/mark.svg is the tool's mark, set inline beside its name so a
+   * mark drawn in currentColor takes the accent. */
+  const markSvg = await readFile(at(path.join(c.public, 'mark.svg')), 'utf8')
+    .then((s) => s.replace(/<\?xml[\s\S]*?\?>/, '').replace(/<!--[\s\S]*?-->/g, '').trim())
+    .then((s) => (/^<svg[\s>]/.test(s) ? s.replace(/^<svg/, '<svg aria-hidden="true" focusable="false"') : ''))
+    .catch(() => '')
   const installers = []
   for (const [file, routes] of INSTALLERS) {
     if (await exists(inRoot(file))) installers.push({ file: inRoot(file), routes })
@@ -108,14 +127,15 @@ export async function build(config, { site, manual: named, frozen = false, log =
     base: guidesDir,
     publicDir,
   })
-  useImages(new Map([...fromGuides.map, ...fromManual.map]))
+  const imageMap = new Map([...fromGuides.map, ...fromManual.map])
+  useImages(imageMap)
   const imageCopies = [...fromManual.copies, ...fromGuides.copies]
   for (const m of [...fromManual.missing, ...fromGuides.missing]) log(`image not found: ${m}`)
 
   /* ---------- the manual ---------- */
 
   const doc = parseManual(md, name)
-  const { title, intro, heroBlocks, heroCode, opening, sections, questions } = doc
+  const { title, intro, heroBlocks, heroCode, heroFigure, opening, sections, questions } = doc
   const guides = await Promise.all(rawGuides.map(parseGuide))
   const updated = await fileDate(manualPath)
 
@@ -132,6 +152,12 @@ export async function build(config, { site, manual: named, frozen = false, log =
   const agent = agentBlock ? agentBlock.text.trim() : ''
   const commands = sections.find((s) => /^commands$/i.test(s.label))?.items ?? []
 
+  /* The card a shared link unfurls to: the config's ogImage, else the hero
+   * figure, which is already the picture the page leads with. */
+  const heroImage = heroFigure ? (imageMap.get(heroFigure)?.url ?? heroFigure) : ''
+  const ogImage = c.ogImage || heroImage
+  const ogImageUrl = !ogImage ? '' : /^https?:\/\//.test(ogImage) ? ogImage : url ? `${url}${ogImage}` : ''
+
   /* The accent is the one thing the stylesheet takes from the config. */
   const accent = `:root {
   --accent-light: ${c.accent.light.accent};
@@ -143,8 +169,8 @@ export async function build(config, { site, manual: named, frozen = false, log =
 }`
 
   /* The version chip is the way into the release history: the rendered
-   * changelog when the site has one, the GitHub releases page otherwise. */
-  const releases = changelogPath ? '/changelog/' : repo ? `https://github.com/${repo}/releases` : ''
+   * changelog when the site has one, the host's releases page otherwise. */
+  const releases = changelogPath ? '/changelog/' : forge?.releases ?? ''
   const chip = !version
     ? ''
     : releases
@@ -153,14 +179,16 @@ export async function build(config, { site, manual: named, frozen = false, log =
   const nav = [
     guides.length ? `      <a href="/guides/">guides</a>` : '',
     hasInstall ? `      <a href="/#install">install</a>` : '',
-    repo
-      ? `      <a class="gh" href="https://github.com/${repo}">
-        ${GH_MARK}${typeof starCount === 'number' ? `\n        <span class="stars">${formatStars(starCount)}</span>` : ''}
+    forge
+      ? `      <a class="gh" href="${esc(forge.url)}"${forge.kind === 'github' ? ' aria-label="Source on GitHub"' : ''}>
+        ${forge.kind === 'github' ? GH_MARK : 'source'}${
+          typeof starCount === 'number' && starCount >= STARS_MIN ? `\n        <span class="stars">${formatStars(starCount)}</span>` : ''
+        }
       </a>`
       : '',
   ].filter(Boolean)
   const masthead = `  <header class="masthead">
-    <a class="mark" href="/">${esc(title)}</a>${chip}${nav.length ? `\n    <nav>\n${nav.join('\n')}\n    </nav>` : ''}
+    <a class="mark${markSvg ? ' has-mark' : ''}" href="/">${markSvg}${esc(title)}</a>${chip}${nav.length ? `\n    <nav>\n${nav.join('\n')}\n    </nav>` : ''}
   </header>`
 
   const footer = `      <footer>
@@ -187,8 +215,8 @@ export async function build(config, { site, manual: named, frozen = false, log =
 <meta property="og:site_name" content="${esc(name)}">${url ? `\n<meta property="og:url" content="${url}${pagePath}">` : ''}
 <meta property="og:title" content="${esc(pageTitle)}">
 <meta property="og:description" content="${esc(pageDescription)}">${
-    c.ogImage && url
-      ? `\n<meta property="og:image" content="${url}${c.ogImage}">\n<meta name="twitter:card" content="summary_large_image">`
+    ogImageUrl
+      ? `\n<meta property="og:image" content="${esc(ogImageUrl)}">\n<meta name="twitter:card" content="summary_large_image">`
       : `\n<meta name="twitter:card" content="summary">`
   }${ld && c.jsonld ? `\n${jsonLd(ld)}` : ''}
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -212,14 +240,28 @@ ${content}
 `
 
   /* A page body: the hero, the sections, the footer, and a rail when there
-   * is more than one thing to point at. */
-  const page = ({ hero, blocks, rail, scripts = '' }) => `  <div class="layout">
-    <main class="col">
+   * is more than one thing to point at. A hero with a figure spans the page,
+   * so the picture is read at the size it was taken, and the rail starts
+   * below it. */
+  const page = ({ hero, blocks, rail, scripts = '', wide = false }) => `${
+    wide
+      ? `  <div class="hero hero--wide">
+${hero}
+  </div>
 
+`
+      : ''
+  }  <div class="layout">
+    <main class="col">
+${
+  wide
+    ? ''
+    : `
       <div class="hero">
 ${hero}
       </div>
-
+`
+}
 ${renderSections(blocks)}
 
 ${footer}
@@ -265,6 +307,7 @@ ${scripts}`
         <div class="rule"></div>
 ${intro.map((p, i) => `        <p class="${i === 0 ? 'lede' : 'sub'}">${p}</p>`).join('\n')}
 ${heroBlocks.join('\n')}`,
+      wide: Boolean(heroFigure),
       blocks: [...(opening.length ? [section('', '', opening)] : []), ...sections],
       rail: sections.length
         ? `        <p class="rail-label">Contents</p>
@@ -272,7 +315,7 @@ ${heroBlocks.join('\n')}`,
 ${railList(sections.map((s) => ({ href: `/#${s.id}`, label: s.label })))}
         </ol>`
         : '',
-      scripts: [legacy, PAGE_SCRIPT, repo ? STARS_SCRIPT(repo) : ''].filter(Boolean).join('\n'),
+      scripts: [legacy, PAGE_SCRIPT, forge?.api ? STARS_SCRIPT(forge) : ''].filter(Boolean).join('\n'),
     }),
   })
 
@@ -290,8 +333,8 @@ ${railList(sections.map((s) => ({ href: `/#${s.id}`, label: s.label })))}
         <div class="rule"></div>
         <p class="lede">Every release of ${esc(title)}, newest first. Versions follow Semantic Versioning and match the git tags.</p>
         <p class="sub">${
-          repo
-            ? `The canonical file is <a href="https://github.com/${repo}/blob/main/CHANGELOG.md">CHANGELOG.md</a> in the repository; this page is rendered from it.`
+          forge
+            ? `The canonical file is <a href="${esc(forge.file('CHANGELOG.md'))}">CHANGELOG.md</a> in the repository; this page is rendered from it.`
             : 'This page is rendered from CHANGELOG.md in the repository.'
         }</p>`,
         blocks: groups,
@@ -391,10 +434,11 @@ ${railList(clusters.map((cl) => ({ href: `#${slug(cl)}`, label: cl })))}
 
   /* ---------- the 404 ---------- */
 
-  /* A site with no server-side redirects (GitHub Pages) carries the map of
-   * retired URLs in its 404 page: everything that folded into the manual lands
-   * on its anchor, what stayed in the repo points at the file on GitHub, and
-   * anything else says "not found" honestly rather than bouncing to the top. */
+  /* Every host gets the map of retired URLs in its 404 page, which works
+   * wherever a 404 page is served: everything that folded into the manual
+   * lands on its anchor, what stayed in the repo points at the file, and
+   * anything else says "not found" honestly rather than bouncing to the top.
+   * A host with real redirects also gets them in its own file, below. */
   const notFound = shell({
     pageTitle: `Not found — ${title}`,
     pageDescription: `This page is not part of the ${title} manual.`,
@@ -406,7 +450,7 @@ ${railList(clusters.map((cl) => ({ href: `#${slug(cl)}`, label: cl })))}
         <h1>Not found</h1>
         <div class="rule"></div>
         <p class="lede">The documentation is one page now. Whatever was at <code class="inline" id="nf-path">this address</code> is either in <a href="/">the manual</a>${
-          repo ? ` or <a href="https://github.com/${repo}">in the repository</a>` : ''
+          forge ? ` or <a href="${esc(forge.url)}">in the repository</a>` : ''
         }.</p>${c.notFoundExtra ? `\n        <p class="sub">${c.notFoundExtra}</p>` : ''}
       </div>
     </main>
@@ -510,6 +554,8 @@ ${railList(clusters.map((cl) => ({ href: `#${slug(cl)}`, label: cl })))}
   if (c.sitemap && sitemap) await emit('sitemap.xml', sitemap)
   if (c.moved) await emit('404.html', notFound)
   if (c.redirects) await emit('_redirects', c.redirects)
+  else if (c.moved && ['cloudflare', 'netlify'].includes(c.host)) await emit('_redirects', redirectsFile(c.moved))
+  if (c.moved && c.host === 'vercel') await emit('vercel.json', vercelJson(c.moved))
   if (changelog) await emit('changelog/index.html', changelog)
   if (guidesIndex) await emit('guides/index.html', guidesIndex)
   for (const g of guidePages) {

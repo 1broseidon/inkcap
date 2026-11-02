@@ -6,6 +6,7 @@
 
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { repoUrl } from './forge.mjs'
 import { exists } from './repo.mjs'
 
 /* The default ink: what a manual is printed in when its config names no
@@ -29,9 +30,12 @@ export const DEFAULTS = {
 }
 
 const HEX = /^#[0-9a-f]{6}$/i
+/* The hosts whose redirect files the build knows how to write. Any other
+ * static host works; it gets the 404 page's map, which works everywhere. */
+export const HOSTS = ['github', 'cloudflare', 'netlify', 'vercel', 'static']
 const STRINGS = [
   'name', 'url', 'repo', 'tagline', 'built', 'license', 'language', 'manual', 'changelog',
-  'guides', 'version', 'ogImage', 'redirects', 'notFoundExtra', 'out', 'public', 'stars',
+  'guides', 'version', 'ogImage', 'redirects', 'notFoundExtra', 'out', 'public', 'stars', 'host',
 ]
 const OBJECTS = ['accent', 'legacyAnchors', 'moved', 'captures']
 const SWITCHES = ['robots', 'sitemap', 'manifest', 'jsonld', 'editions']
@@ -49,6 +53,10 @@ export function validate(raw = {}, file = 'inkcap.config.mjs') {
     if (raw[k] !== undefined && typeof raw[k] !== 'boolean') bad.push(`${k} (true or false)`)
   }
   if (raw.llmsExtra !== undefined && !Array.isArray(raw.llmsExtra)) bad.push('llmsExtra (an array of lines)')
+  if (raw.host !== undefined && !HOSTS.includes(raw.host)) bad.push(`host (one of ${HOSTS.join(', ')})`)
+  if (raw.titleWords !== undefined && raw.titleWords !== false && !(Number.isInteger(raw.titleWords) && raw.titleWords > 0)) {
+    bad.push('titleWords (a whole number, or false)')
+  }
   if (raw.clusters !== undefined && !(Array.isArray(raw.clusters) && raw.clusters.every((x) => typeof x === 'string'))) {
     bad.push('clusters (an array of cluster names)')
   }
@@ -69,11 +77,11 @@ export function validate(raw = {}, file = 'inkcap.config.mjs') {
 
   const c = { ...DEFAULTS, ...raw, accent }
   if (c.url) c.url = c.url.replace(/\/+$/, '')
+  /* A GitHub repository is `owner/name`, as it always was; a repository on
+   * any other host is kept as its URL. */
   if (c.repo) {
-    c.repo = c.repo
-      .replace(/^https?:\/\/github\.com\//, '')
-      .replace(/\.git$/, '')
-      .replace(/\/+$/, '')
+    const u = repoUrl(c.repo)
+    c.repo = u.startsWith('https://github.com/') ? u.slice('https://github.com/'.length) : u
   }
   return c
 }

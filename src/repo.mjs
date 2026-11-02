@@ -1,10 +1,11 @@
-/* What the repository says about itself, read without asking: the GitHub
+/* What the repository says about itself, read without asking: the origin
  * remote, the latest tag, when a file last changed, the licence, the
  * language. Each returns nothing rather than guessing. */
 
 import { execFileSync } from 'node:child_process'
 import { access, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { repoUrl } from './forge.mjs'
 
 export const exists = (p) => access(p).then(() => true, () => false)
 
@@ -16,13 +17,13 @@ const git = (cwd, args) => {
   }
 }
 
-/* `owner/name` from the origin remote, for GitHub remotes only; the masthead
- * link and the star count have nowhere else to point. */
+/* The origin remote: `owner/name` on GitHub, the https URL of the repository
+ * on any other host, or nothing for a remote that is a local path. */
 export const gitRemote = (cwd) => {
-  const m = git(cwd, ['remote', 'get-url', 'origin']).match(
-    /github\.com[:/]([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/,
-  )
-  return m ? m[1] : ''
+  const remote = git(cwd, ['remote', 'get-url', 'origin'])
+  if (!/^(https?:\/\/|ssh:\/\/|[\w.-]+@)/.test(remote)) return ''
+  const u = repoUrl(remote)
+  return u.startsWith('https://github.com/') ? u.slice('https://github.com/'.length) : u
 }
 
 /* Version comes from the repo's own tags, so the site can't drift from what

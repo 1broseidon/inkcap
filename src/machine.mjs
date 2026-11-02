@@ -2,6 +2,8 @@
  * page. Every one is derived from the same Markdown as the page, so none can
  * disagree with it. Absent facts are absent lines and absent keys. */
 
+import { repoUrl } from './forge.mjs'
+
 const AI_CRAWLERS = [
   'GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-Web', 'Claude-SearchBot',
   'anthropic-ai', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'Applebot',
@@ -35,7 +37,7 @@ export const llmsTxt = ({
   }
   lines.push('## Links', '')
   if (hasInstall) lines.push(`- Install: ${link('/#install')}`)
-  if (repo) lines.push(`- Source: https://github.com/${repo}`)
+  if (repo) lines.push(`- Source: ${repoUrl(repo)}`)
   if (manifest) lines.push(`- Site as data: ${link('/manifest.json')}`)
   if (sitemap && url) lines.push(`- Sitemap: ${url}/sitemap.xml`)
   lines.push(...extra)
@@ -74,7 +76,7 @@ export const manifestJson = (m) => {
     tagline: m.tagline || undefined,
     description: m.description || undefined,
     url: m.url || undefined,
-    repo: m.repo ? `https://github.com/${m.repo}` : undefined,
+    repo: m.repo ? repoUrl(m.repo) : undefined,
     version: m.version || undefined,
     license: m.license || undefined,
     language: m.language || undefined,
@@ -130,7 +132,7 @@ export const softwareLd = (m) => ({
   license: m.license ? `https://spdx.org/licenses/${m.license}.html` : undefined,
   offers: m.license ? { '@type': 'Offer', price: '0', priceCurrency: 'USD' } : undefined,
   installUrl: m.hasInstall && m.url ? `${m.url}/#install` : undefined,
-  sameAs: m.repo ? [`https://github.com/${m.repo}`] : undefined,
+  sameAs: m.repo ? [repoUrl(m.repo)] : undefined,
 })
 
 export const articleLd = ({ headline, description, url, updated, name, siteUrl }) => ({
