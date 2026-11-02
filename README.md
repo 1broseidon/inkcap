@@ -9,8 +9,6 @@ and out comes the finished page in the tool's own accent, the machine
 editions an agent reads instead of the page, and a "Published with inkcap"
 line at the foot.
 
-![ketch.run as inkcap prints it: the name and version in the masthead, the lede, the Install and Or hand it to your agent copy blocks, and the contents rail on the right.](docs/ketch.webp "ketch.run, printed from ketch's MANUAL.md in its own teal.")
-
 ```console title="Install"
 $ npm install --save-dev inkcap
 $ npx inkcap build
@@ -30,16 +28,14 @@ Give this repository a manual site with inkcap.
 
 ## Overview
 
-It is the build behind [ketch.run](https://ketch.run),
-[cymbal.sh](https://cymbal.sh), [brainfile.md](https://brainfile.md),
-[recoil.sh](https://recoil.sh) and [inkcap.io](https://inkcap.io), which is
-this README. There is no framework: one Node script, `marked` at build time,
-and the only JavaScript shipped is a copy button, the live star count, and
-the line that opens a disclosure when a link points at it.
-
 The manuscript is the API. inkcap reads what is in the repository and prints
 everything it can from it. Nothing is required beyond one Markdown file;
 everything else appears when it is present and is left out when it is not.
+
+There is no framework: one Node script, `marked` at build time, and the only
+JavaScript shipped is a copy button, the live star count, and the line that
+opens a disclosure when a link points at it. This page is a README printed
+that way.
 
 ## Use
 
@@ -541,6 +537,15 @@ instance, deployed by hand with `wrangler deploy` from `site/`:
 
 A `redirects` string in the config becomes the `_redirects` file Workers
 honours; a `moved` map becomes the `404.html` GitHub Pages serves.
+
+## Printed with inkcap
+
+The manuals of the [chain.sh](https://chain.sh) tools are printed with inkcap,
+each from its own repository and in its own accent:
+[ketch.run](https://ketch.run), [cymbal.sh](https://cymbal.sh),
+[brainfile.md](https://brainfile.md) and [recoil.sh](https://recoil.sh).
+
+![ketch.run as inkcap prints it: the name and version in the masthead, the lede, the Install and Or hand it to your agent copy blocks, and the contents rail on the right.](docs/ketch.webp "ketch.run, printed from ketch's MANUAL.md in its own teal.")
 
 ## What inkcap will not do
 
