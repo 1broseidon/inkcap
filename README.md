@@ -14,12 +14,12 @@ $ npm install --save-dev inkcap
 $ npx inkcap build
 ```
 
-```console title="Or hand it to your agent"
+```console title="For your agent"
 Give this repository a manual site with inkcap.
 1. Read https://inkcap.io/llms-full.txt.
 2. If there is no MANUAL.md, write one from the README: the Install and
-   "Or hand it to your agent" blocks before the first ##, then Overview,
-   Install and Quickstart.
+   For your agent blocks before the first ##, then Overview, Install and
+   Quickstart, every title one to three words.
 3. Create site/ with package.json and inkcap.config.mjs as the manual
    describes, and run `npx inkcap build` there.
 4. Add the GitHub Pages workflow from the Hosting section.
@@ -101,7 +101,7 @@ directory is. The directory holding the manual is the root, where everything
 else is looked for. `--frozen` is for release workflows: captures are checked
 and never written, and the build fails if any of them drifted.
 
-## What the build prints from what is there
+## Inputs
 
 Every row is independent. A file that is absent removes its row and nothing
 else; there is no empty Guides page, no `Questions` section that was not
@@ -113,7 +113,7 @@ written, no licence line that is a guess.
 | its `#` heading | the title, the name, the `<h1>` |
 | its first paragraph | the description, the hero lede, the `llms.txt` summary |
 | ```` ```console title="Install" ```` before the first `##` | a copy block in the hero; the install command in `llms.txt` and `manifest.json` |
-| ```` ```console title="Or hand it to your agent" ```` before the first `##` | a copy block in the hero; the agent prompt in `manifest.json` |
+| ```` ```console title="For your agent" ```` before the first `##` (any title naming the agent) | a copy block in the hero; the agent prompt in `manifest.json` |
 | `## Commands` with `#### name — one-liner` rows | `commands` in `manifest.json`, each with its anchor |
 | `## Questions` with `#### Question?` rows | FAQPage JSON-LD on the manual page |
 | ```` ```console capture ```` fences, and the tool on `PATH` | the outputs refreshed in place, see Captures |
@@ -130,7 +130,7 @@ written, no licence line that is a guess.
 | `stars.json` in the site directory | the star count baked into the masthead |
 | an image the manual or a guide shows | the file copied to its path on the site, its size in the `<img>`, and its `.phone` crop for small screens |
 
-## Writing the manual
+## Writing
 
 `MANUAL.md` is plain CommonMark. Read on GitHub it is a well-formed document;
 inkcap reads a few conventions in it to build the richer components.
@@ -156,13 +156,18 @@ inkcap reads a few conventions in it to build the richer components.
 | `![alt](path "caption")` alone in its paragraph | a figure: sized from the file, linked to the full image, captioned by its title; see Images |
 
 The family sites keep the same spine, which is what makes them read as one:
-the hero with the Install and "Or hand it to your agent" copy blocks, then
-Overview, Install, Quickstart, Choosing a command, Commands, the tool's own
-sections, For agents, Notes. Nothing enforces that; it is a convention worth
-keeping.
+the hero with the Install and For your agent copy blocks, then Overview,
+Install, Quickstart, Commands, the tool's own sections, For agents, Notes.
+Nothing enforces that; it is a convention worth keeping.
 
-Section ids are the heading slugs (`## Choosing a command` is
-`#choosing-a-command`). A collapsible row has an id too, the slug of its name
+Titles are names of one to three words: `## Install`, not
+`## How to install it`. The same holds for subheads, row names, copy-block
+labels and table heads. A manual is read by scanning its rail, and a sentence
+there is a paragraph in the wrong place; sentences belong in the body and the
+captions. Guides are the one exception, because a guide's headings are the
+questions a reader searches for.
+
+Section ids are the heading slugs (`## For agents` is `#for-agents`). A collapsible row has an id too, the slug of its name
 (`#### search — …` under Commands is `#search`); when that id is already a
 section's or an earlier row's, the section id is prefixed (`#commands-search`).
 A link to a row opens it. If a heading is renamed, add the old id to
@@ -308,7 +313,7 @@ Every page has a plain-text twin, and the site describes itself in the files
 an agent looks for first. They are derived from the same Markdown as the
 page, so they cannot disagree with it.
 
-| File | What it is |
+| File | Contents |
 | --- | --- |
 | `/llms.txt` | the short index: the description, the install command, every section and guide with a one-line summary, the links |
 | `/llms-full.txt` | the manual, verbatim |
@@ -376,7 +381,7 @@ facts are absent keys.
 `inkcap` is the shape's version; it changes only when a key changes meaning.
 `install.command` is the hero's Install block with the prompts dropped;
 `install.scripts` and `install.uninstall` are the installer scripts served
-from the root; `agent` is the "Or hand it to your agent" block; `commands`
+from the root; `agent` is the For your agent block; `commands`
 are the rows of the Commands section; `questions` are the rows of the
 Questions section; `sections` and `guides` carry the same one-line summaries
 as `llms.txt`.
@@ -402,7 +407,7 @@ export default {
 }
 ```
 
-| Key | Meaning | Without it |
+| Key | Meaning | Default |
 | --- | --- | --- |
 | `name` | the tool's name | the `#` heading |
 | `url` | the site's origin | `public/CNAME`; otherwise no canonical, Open Graph or sitemap |
@@ -427,7 +432,7 @@ export default {
 | `robots`, `sitemap`, `manifest`, `jsonld`, `editions` | `false` switches that output off | all on |
 | `out`, `public`, `stars` | output, assets and star-count paths | `dist`, `public`, `stars.json` |
 
-## What comes out
+## Outputs
 
 ```
 dist/
@@ -538,16 +543,16 @@ instance, deployed by hand with `wrangler deploy` from `site/`:
 A `redirects` string in the config becomes the `_redirects` file Workers
 honours; a `moved` map becomes the `404.html` GitHub Pages serves.
 
-## Printed with inkcap
+## In use
 
 The manuals of the [chain.sh](https://chain.sh) tools are printed with inkcap,
 each from its own repository and in its own accent:
 [ketch.run](https://ketch.run), [cymbal.sh](https://cymbal.sh),
 [brainfile.md](https://brainfile.md) and [recoil.sh](https://recoil.sh).
 
-![ketch.run as inkcap prints it: the name and version in the masthead, the lede, the Install and Or hand it to your agent copy blocks, and the contents rail on the right.](docs/ketch.webp "ketch.run, printed from ketch's MANUAL.md in its own teal.")
+![ketch.run as inkcap prints it: the name and version in the masthead, the lede, the Install and agent copy blocks, and the contents rail on the right.](docs/ketch.webp "ketch.run, printed from ketch's MANUAL.md in its own teal.")
 
-## What inkcap will not do
+## Limits
 
 One manual, its guides, its changelog, and the machine editions of all three.
 That is the whole shape, and it stays that shape: no themes, no plugins, no
