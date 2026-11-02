@@ -1,0 +1,30 @@
+name: Publish
+
+# A published GitHub release puts the same version on npm through npm's
+# trusted publishing: no token in the repo, only this workflow's OIDC
+# identity, and a provenance statement on the package. Run it by hand to
+# publish a release that was cut before this workflow existed.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: The tag names the version being published
+        if: github.event_name == 'release'
+        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      - run: npm ci
+      - run: npm test
+      - run: npm publish --provenance --access public
