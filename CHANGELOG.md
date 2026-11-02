@@ -6,6 +6,14 @@ All notable changes to inkcap are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-02
+
+### Fixed
+
+- On a phone the masthead stays one line: the name never breaks, the version
+  chip steps aside (the footer still names it), and on the narrowest screens
+  the install link goes too, since the hero has it.
+
 ## [0.6.1] - 2026-11-02
 
 ### Fixed

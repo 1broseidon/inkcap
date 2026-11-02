@@ -1,6 +1,6 @@
 {
   "name": "inkcap",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Publishes a MANUAL.md as a one-page manual site with the machine editions an agent reads. Made for GitHub Pages; any static host works.",
   "type": "module",
   "bin": {
