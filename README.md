@@ -9,11 +9,33 @@ and out comes the finished page in the tool's own accent, the machine
 editions an agent reads instead of the page, and a "Published with inkcap"
 line at the foot.
 
+![ketch.run as inkcap prints it: the name and version in the masthead, the lede, the Install and Or hand it to your agent copy blocks, and the contents rail on the right.](docs/ketch.webp "ketch.run, printed from ketch's MANUAL.md in its own teal.")
+
+```console title="Install"
+$ npm install --save-dev inkcap
+$ npx inkcap build
+```
+
+```console title="Or hand it to your agent"
+Give this repository a manual site with inkcap.
+1. Read https://inkcap.io/llms-full.txt.
+2. If there is no MANUAL.md, write one from the README: the Install and
+   "Or hand it to your agent" blocks before the first ##, then Overview,
+   Install and Quickstart.
+3. Create site/ with package.json and inkcap.config.mjs as the manual
+   describes, and run `npx inkcap build` there.
+4. Add the GitHub Pages workflow from the Hosting section.
+5. Show me dist/index.html before you commit anything.
+```
+
+## Overview
+
 It is the build behind [ketch.run](https://ketch.run),
-[cymbal.sh](https://cymbal.sh), [brainfile.md](https://brainfile.md) and
-[recoil.sh](https://recoil.sh). There is no framework: one Node script,
-`marked` at build time, and the only JavaScript shipped is a copy button, the
-live star count, and the line that opens a disclosure when a link points at it.
+[cymbal.sh](https://cymbal.sh), [brainfile.md](https://brainfile.md),
+[recoil.sh](https://recoil.sh) and [inkcap.io](https://inkcap.io), which is
+this README. There is no framework: one Node script, `marked` at build time,
+and the only JavaScript shipped is a copy button, the live star count, and
+the line that opens a disclosure when a link points at it.
 
 The manuscript is the API. inkcap reads what is in the repository and prints
 everything it can from it. Nothing is required beyond one Markdown file;
@@ -110,6 +132,7 @@ written, no licence line that is a guess.
 | `guides/` in the root | a page per guide, its Markdown edition, `/guides/`, a `guides` link in the masthead, entries in `sitemap.xml`, `llms.txt` and `manifest.json` |
 | `public/` in the site directory | copied into `dist/` untouched; a file there wins over anything the build would write at the same path |
 | `stars.json` in the site directory | the star count baked into the masthead |
+| an image the manual or a guide shows | the file copied to its path on the site, its size in the `<img>`, and its `.phone` crop for small screens |
 
 ## Writing the manual
 
@@ -134,6 +157,7 @@ inkcap reads a few conventions in it to build the richer components.
 | a cell of `ok: 0`, `warn: 2`, `crit: 4` | a status cell, tinted by severity |
 | a cell starting with a digit, `~` or `≈` | a numeric cell |
 | a list whose items all open with `**Bad**` or `**Good**` | contrast pairs; each Bad starts a new pair |
+| `![alt](path "caption")` alone in its paragraph | a figure: sized from the file, linked to the full image, captioned by its title; see Images |
 
 The family sites keep the same spine, which is what makes them read as one:
 the hero with the Install and "Or hand it to your agent" copy blocks, then
@@ -156,6 +180,32 @@ disclosures like any other section; the difference is that the build also
 emits the pairs as FAQPage JSON-LD, with the answer's plain text, so a search
 engine or an agent can quote the answer without loading the page. Keep the
 answers short and self-contained: the first sentence should stand alone.
+
+## Images
+
+An image alone in its paragraph is a figure. Its path is relative to the file
+it is written in, the way GitHub reads it, so the manual shows the same
+picture on GitHub and on the site.
+
+```markdown
+![The desktop mid-job: a browser on the left, the job log on the right.](docs/screens/desk.webp "Serving a site, every job logged on the right.")
+```
+
+The alt text says what the picture shows; the title, when there is one, is the
+caption under it. The build copies the file to the same path on the site,
+writes its width and height into the `<img>` so the page does not jump while
+it loads, and links the figure to the full-size file, so a screenshot scaled
+to the column can still be read. PNG, JPEG, GIF, WebP and SVG are sized from
+their headers.
+
+A file beside it named with `.phone` before the extension
+(`docs/screens/desk.phone.webp`) is served instead on small screens: a crop
+of the part that matters, rather than the whole screen at a third of its size.
+
+A figure in the hero, after the opening paragraphs, loads at once; every other
+figure loads as it nears the screen. An image inside a sentence stays inline.
+A path that lands in `public/` is served where `public/` puts it. A file that
+is missing is left as written, and the build names it.
 
 ## Guides
 

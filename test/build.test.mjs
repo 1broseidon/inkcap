@@ -8,6 +8,7 @@ import { findBlocks, parseBlock } from '../src/capture.mjs'
 import { INK, loadConfig, validate } from '../src/config.mjs'
 import { parseFrontmatter } from '../src/guides.mjs'
 import { firstSentence, plain } from '../src/render.mjs'
+import { imageSize } from '../src/image.mjs'
 import { detectLicense } from '../src/repo.mjs'
 import { formatStars, readStarCount } from '../src/stars.mjs'
 
@@ -225,6 +226,84 @@ test('a bare README with no config is a clean page', async () => {
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
+})
+
+/* The first bytes of a PNG, enough for its header to name the size. */
+const png = (w, h) => {
+  const b = Buffer.alloc(33)
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b, 0)
+  b.writeUInt32BE(13, 8)
+  b.write('IHDR', 12, 'ascii')
+  b.writeUInt32BE(w, 16)
+  b.writeUInt32BE(h, 20)
+  return b
+}
+
+test('an image alone in its paragraph is a figure, sized, copied and paired with its phone crop', async () => {
+  const dir = await scratch()
+  try {
+    await mkdir(path.join(dir, 'docs'), { recursive: true })
+    await mkdir(path.join(dir, 'public', 'og'), { recursive: true })
+    await writeFile(path.join(dir, 'docs', 'desk.png'), png(1920, 1080))
+    await writeFile(path.join(dir, 'docs', 'desk.phone.png'), png(960, 720))
+    await writeFile(path.join(dir, 'public', 'og', 'card.png'), png(1200, 630))
+    await writeFile(
+      path.join(dir, 'MANUAL.md'),
+      [
+        '# pictured',
+        '',
+        'A tool with a screen worth showing.',
+        '',
+        '![The desk at work](docs/desk.png "The desk, *mid-job*.")',
+        '',
+        '## Overview',
+        '',
+        '![A card](og/card.png)',
+        '',
+        'The overview opens after its picture. An icon ![dot](docs/desk.png) stays in the line.',
+        '',
+        '[![Linked](docs/desk.png)](https://example.com/full)',
+        '',
+        '![Gone](docs/missing.png)',
+        '',
+      ].join('\n'),
+    )
+    const logged = []
+    const r = await build(validate({}), { site: dir, log: (m) => logged.push(m) })
+    const html = await read(r.out, 'index.html')
+    const hero = html.slice(html.indexOf('<div class="hero">'), html.indexOf('<section'))
+    assert.match(hero, /<figure class="figure">\s*<a href="\/docs\/desk\.png"><picture><source media="\(max-width: 34rem\)" srcset="\/docs\/desk\.phone\.png" width="960" height="720"><img src="\/docs\/desk\.png" alt="The desk at work" width="1920" height="1080" fetchpriority="high" decoding="async"><\/picture><\/a>\s*<figcaption>The desk, <em>mid-job<\/em>\.<\/figcaption>/, 'a hero figure loads at once, with its phone crop and caption')
+    assert.doesNotMatch(hero, /class="sub"/, 'the image is not hero copy')
+    assert.match(html, /<a href="\/og\/card\.png"><img src="\/og\/card\.png" alt="A card" width="1200" height="630" loading="lazy" decoding="async"><\/a>/, 'a path inside public/ is served where public/ puts it')
+    assert.match(html, /<p>The overview opens after its picture\. An icon <img src="docs\/desk\.png" alt="dot"> stays in the line\.<\/p>/, 'an image inside a sentence stays inline')
+    assert.match(html, /<a href="https:\/\/example\.com\/full"><picture><source [^>]+><img src="\/docs\/desk\.png" alt="Linked" width="1920" height="1080" loading="lazy"/, 'a linked image keeps its link')
+    assert.match(html, /<img src="docs\/missing\.png" alt="Gone" loading="lazy" decoding="async">/, 'a missing file is left as written')
+    assert.deepEqual(logged, ['image not found: docs/missing.png'])
+    assert.equal(r.images, 2)
+    assert.deepEqual(await readFile(path.join(r.out, 'docs', 'desk.png')), png(1920, 1080), 'copied beside the page at its path')
+    assert.ok(await readFile(path.join(r.out, 'docs', 'desk.phone.png')))
+    const manifest = JSON.parse(await read(r.out, 'manifest.json'))
+    assert.equal(manifest.sections[0].summary, 'The overview opens after its picture.', 'a figure is never a summary')
+    assert.match(await read(r.out, 'llms-full.txt'), /!\[The desk at work\]\(docs\/desk\.png/, 'the agent edition keeps the Markdown')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('image sizes come from the header of each format', () => {
+  assert.deepEqual(imageSize(png(640, 480)), { width: 640, height: 480 })
+  const gif = Buffer.from('GIF89a\x40\x01\xf0\x00', 'latin1')
+  assert.deepEqual(imageSize(gif), { width: 320, height: 240 })
+  const webp = Buffer.alloc(30)
+  webp.write('RIFF', 0, 'ascii')
+  webp.write('WEBPVP8X', 8, 'ascii')
+  webp.writeUIntLE(1919, 24, 3)
+  webp.writeUIntLE(1079, 27, 3)
+  assert.deepEqual(imageSize(webp), { width: 1920, height: 1080 })
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x02, 0x58, 0x03, 0x20, 0x03])
+  assert.deepEqual(imageSize(jpeg), { width: 800, height: 600 })
+  assert.deepEqual(imageSize(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16"></svg>'), '.svg'), { width: 24, height: 16 })
+  assert.equal(imageSize(Buffer.from('not an image')), null)
 })
 
 test('a file from public/ wins over what the build would write', async () => {

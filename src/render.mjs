@@ -17,6 +17,9 @@
  *   | a | b |               a table that scrolls rather than overflowing
  *   | ok: 0 | / crit: …     a status cell, tinted by severity
  *   - **Bad** … / **Good**  a contrast pair
+ *   ![alt](src "caption")   alone in its paragraph: a figure, sized from the
+ *                           file, linked to the full image, captioned by its
+ *                           title; a `name.phone.ext` beside it is the phone crop
  *
  * Read on GitHub, all of that is just a well-formed Markdown document. marked
  * runs at build time only — the page ships zero framework JavaScript.
@@ -137,6 +140,51 @@ export const fenceInfo = (lang = '') => ({
   capture: /(^|\s)capture(\s|$)/.test(lang),
 })
 
+/* ---------- figures ---------- */
+
+/* A paragraph holding one image and nothing else, or one linked image, is a
+ * figure. An image inside a sentence stays inline. */
+export const figureOf = (tok) => {
+  if (tok.type !== 'paragraph') return null
+  const kids = (tok.tokens ?? []).filter((t) => !(t.type === 'text' && !t.text.trim()))
+  if (kids.length !== 1) return null
+  const k = kids[0]
+  if (k.type === 'image') return { src: k.href, alt: k.text, caption: k.title, href: '' }
+  const only = k.type === 'link' && k.tokens?.filter((t) => !(t.type === 'text' && !t.text.trim()))
+  if (only?.length === 1 && only[0].type === 'image') {
+    return { src: only[0].href, alt: only[0].text, caption: only[0].title, href: k.href }
+  }
+  return null
+}
+
+/* What the build learned about each image source: its URL on the site, its
+ * size and its phone crop. Set once per build, before anything renders. */
+let images = new Map()
+export const useImages = (map) => {
+  images = map ?? new Map()
+}
+
+const dims = (i) => (i?.width ? ` width="${i.width}" height="${i.height}"` : '')
+
+/* A figure in the hero is above the fold and loads at once; the rest wait
+ * until they are near. A figure links to the full-size file, so a screenshot
+ * scaled to the column can still be read. */
+const figure = (f, hero) => {
+  const info = images.get(f.src)
+  const src = info?.url ?? f.src
+  const img = `<img src="${esc(src)}" alt="${esc(f.alt)}"${dims(info)}${
+    hero ? ' fetchpriority="high"' : ' loading="lazy"'
+  } decoding="async">`
+  const pic = info?.phone
+    ? `<picture><source media="(max-width: 34rem)" srcset="${esc(info.phone.url)}"${dims(info.phone)}>${img}</picture>`
+    : img
+  return `      <figure class="figure">
+        <a href="${esc(f.href || src)}">${pic}</a>${
+          f.caption ? `\n        <figcaption>${inline(f.caption)}</figcaption>` : ''
+        }
+      </figure>`
+}
+
 /* ---------- block rendering ---------- */
 
 const cell = (raw, first) => {
@@ -193,10 +241,13 @@ ${g
 }
 
 /* `note` marks the muted, smaller paragraph style used inside disclosures. */
-export const block = (tok, note) => {
+export const block = (tok, note, hero = false) => {
   switch (tok.type) {
-    case 'paragraph':
+    case 'paragraph': {
+      const f = figureOf(tok)
+      if (f) return figure(f, hero)
       return `      <p${note ? ' class="note"' : ''}>${inline(tok.text)}</p>`
+    }
     case 'heading':
       return `      <h${tok.depth}>${inline(tok.text)}</h${tok.depth}>`
     case 'code': {
@@ -255,6 +306,8 @@ ${renderBlocks(s.blocks)}
 const tokenText = (tok) => {
   switch (tok.type) {
     case 'paragraph':
+      if (figureOf(tok)) return ''
+      return plain(inline(tok.text))
     case 'heading':
       return plain(inline(tok.text))
     case 'code':
@@ -275,7 +328,7 @@ const tokenText = (tok) => {
  * and is not a summary of anything. */
 export const summaryOf = (blocks) => {
   for (const b of blocks) {
-    if (b.type !== 'paragraph') continue
+    if (b.type !== 'paragraph' || figureOf(b)) continue
     const text = plain(inline(b.text))
     if (/:$/.test(text)) continue
     return firstSentence(text)
@@ -332,7 +385,8 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
       continue
     }
     if (!current) {
-      if (hero && tok.type === 'paragraph') intro.push(inline(tok.text))
+      if (hero && figureOf(tok)) heroBlocks.push(block(tok, false, true))
+      else if (hero && tok.type === 'paragraph') intro.push(inline(tok.text))
       else if (hero && tok.type === 'code') {
         heroBlocks.push(block(tok, false))
         heroCode.push({ ...fenceInfo(tok.lang), text: tok.text })

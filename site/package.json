@@ -1,0 +1,9 @@
+{
+  "name": "inkcap-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../bin/inkcap.mjs build",
+    "prebuild": "node ../bin/inkcap.mjs stars"
+  }
+}

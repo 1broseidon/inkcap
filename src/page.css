@@ -300,6 +300,26 @@ code.inline {
   padding: 0.08em 0.34em;
 }
 
+/* ---------- figures ---------- */
+
+/* A screenshot sits in the column on the terminal's ground, so a dark capture
+   meets a frame of its own colour in either theme. The link opens it at full
+   size; the caption reads like the labels on the copy blocks. */
+.figure { margin: 0.5rem 0 1.5rem; }
+.hero .figure { margin: 1.75rem 0 0; }
+.figure a { display: block; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--term-bg); }
+.figure a:hover { border-color: var(--border-strong); }
+.figure img { display: block; width: 100%; height: auto; }
+.figure figcaption {
+  margin-top: 0.625rem;
+  max-width: var(--measure);
+  font-family: var(--f-mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.col img { max-width: 100%; height: auto; }
+
 /* ---------- tables ---------- */
 
 .scroll { overflow-x: auto; margin: 0 0 1rem; }

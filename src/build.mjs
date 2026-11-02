@@ -12,15 +12,16 @@
  * captured console blocks, guides.mjs reads the guides, machine.mjs writes the
  * editions an agent reads instead of the page. */
 
-import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { refreshCaptures } from './capture.mjs'
 import { findManual } from './config.mjs'
 import { parseGuide, readGuides } from './guides.mjs'
+import { imageSources, resolveImages } from './image.mjs'
 import { articleLd, faqLd, graph, llmsTxt, manifestJson, robotsTxt, sitemapXml, softwareLd } from './machine.mjs'
 import {
   GH_MARK, PAGE_SCRIPT, STARS_SCRIPT, commandsOf, esc, firstSentence, inline, jsonLd,
-  parseChangelog, parseManual, plain, renderSections, slug,
+  parseChangelog, parseManual, plain, renderSections, slug, useImages,
 } from './render.mjs'
 import { detectLanguage, detectLicense, exists, fileDate, gitRemote, gitVersion } from './repo.mjs'
 import { formatStars, readStarCount } from './stars.mjs'
@@ -94,6 +95,22 @@ export async function build(config, { site, manual: named, frozen = false, log =
     rawGuides.forEach((g, i) => (g.text = captures.files[i + 1].text))
   }
   const md = frozen ? committed : captures.files[0].text
+
+  /* ---------- images, before anything renders ---------- */
+
+  /* A Markdown image is a path from the file it is written in, as GitHub
+   * reads it. The figure needs the file's size and its URL on the site
+   * before the first block renders, so they are all read here. */
+  const publicDir = at(c.public)
+  const fromManual = await resolveImages(imageSources(md), { root, publicDir })
+  const fromGuides = await resolveImages(rawGuides.flatMap((g) => imageSources(g.text)), {
+    root,
+    base: guidesDir,
+    publicDir,
+  })
+  useImages(new Map([...fromGuides.map, ...fromManual.map]))
+  const imageCopies = [...fromManual.copies, ...fromGuides.copies]
+  for (const m of [...fromManual.missing, ...fromGuides.missing]) log(`image not found: ${m}`)
 
   /* ---------- the manual ---------- */
 
@@ -457,6 +474,15 @@ ${railList(clusters.map((cl) => ({ href: `#${slug(cl)}`, label: cl })))}
   await mkdir(out, { recursive: true })
   if (await exists(at(c.public))) await cp(at(c.public), out, { recursive: true })
 
+  /* Images the manual and the guides show, at their paths from the root.
+   * One that public/ already put in place stays as it is. */
+  for (const { from, to } of imageCopies) {
+    const p = path.join(out, to)
+    if (await exists(p)) continue
+    await mkdir(path.dirname(p), { recursive: true })
+    await copyFile(from, p)
+  }
+
   /* A file that came from public/ wins over anything the build would write
    * at the same path. */
   const kept = []
@@ -495,6 +521,7 @@ ${railList(clusters.map((cl) => ({ href: `#${slug(cl)}`, label: cl })))}
     bytes: Buffer.byteLength(index),
     sections: sections.length,
     disclosures,
+    images: new Set([...fromManual.map.keys(), ...fromGuides.map.keys()]).size,
     version,
     changelog: Boolean(changelog),
     guides: guides.length,

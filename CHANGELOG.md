@@ -6,6 +6,22 @@ All notable changes to inkcap are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-01
+
+Pictures. A manual can show the thing it documents, the way GitHub already
+shows it, and the page stays as still and as light as before.
+
+### Added
+
+- Images. An image alone in its paragraph is a figure: sized from the file's
+  header (PNG, JPEG, GIF, WebP, SVG) so the page never jumps, copied to its
+  path on the site, linked to the full-size file, and captioned by its title.
+  A `name.phone.ext` beside it is served on small screens. A figure in the
+  hero loads at once; the rest load lazily. A missing file is named in the
+  build output. Images inside a sentence stay inline.
+- inkcap.io: inkcap's own manual, printed by the code in this repository from
+  this README, in the default ink.
+
 ## [0.3.0] - 2026-09-21
 
 The manuscript is the API. `inkcap build` reads what is in the repository and

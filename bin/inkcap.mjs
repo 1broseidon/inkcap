@@ -74,6 +74,7 @@ try {
       `${r.sections} section${r.sections === 1 ? '' : 's'}`,
       `${r.disclosures} disclosure${r.disclosures === 1 ? '' : 's'}`,
       r.guides ? `${r.guides} guide${r.guides === 1 ? '' : 's'}` : '',
+      r.images ? `${r.images} image${r.images === 1 ? '' : 's'}` : '',
       r.version || 'unversioned',
     ].filter(Boolean)
     console.log(line.join('  ·  '))
