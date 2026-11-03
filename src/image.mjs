@@ -68,11 +68,14 @@ const readHead = async (file) => {
   }
 }
 
-/* Every image source in a run of Markdown, in document order. */
+/* Every image source in a run of Markdown, in document order: Markdown
+ * images, and the src of each <img> written as HTML. */
 export function imageSources(md) {
   const found = []
+  const add = (src) => src && !found.includes(src) && found.push(src)
   marked.walkTokens(marked.lexer(md), (t) => {
-    if (t.type === 'image' && t.href && !found.includes(t.href)) found.push(t.href)
+    if (t.type === 'image') add(t.href)
+    if (t.type === 'html') for (const m of t.raw.matchAll(/<img\b[^>]*?\ssrc=(["'])([^"']+)\1/gi)) add(m[2])
   })
   return found
 }

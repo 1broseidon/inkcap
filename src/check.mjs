@@ -1,5 +1,5 @@
 /* inkcap check: the repository read for what would print wrong. Titles
- * longer than the house allows, links to sections and guides that are not
+ * longer than the style allows, links to sections and guides that are not
  * there, images that are missing, and versions pinned behind the latest tag.
  * It reads what the build reads and writes nothing; a finding names the file
  * and line, so it can be fixed where it was written. */
@@ -39,10 +39,7 @@ export async function check(c, { site, manual: named } = {}) {
   const add = (file, line, kind, message) => findings.push({ file, line, kind, message })
 
   /* Every document and the ids a link into it can land on. */
-  const idsOf = (doc) => new Set([
-    ...doc.sections.map((s) => s.id),
-    ...doc.sections.flatMap((s) => s.items.map((d) => d.id)),
-  ])
+  const idsOf = (doc) => doc.anchors
   const manualText = await readFile(manualPath, 'utf8')
   const legacy = Object.keys(c.legacyAnchors ?? {}).map((k) => k.replace(/^#/, ''))
   const docs = [{

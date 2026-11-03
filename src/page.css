@@ -1,4 +1,4 @@
-/* The chain.sh house style, shared by every manual inkcap prints.
+/* The inkcap page, shared by every manual it prints.
  *
  * Tokens, type and components are the same on every site, so the family reads
  * as one. The only thing that differs from site to site is the accent, and it
@@ -173,6 +173,13 @@ a:hover { text-decoration-thickness: 2px; }
 
 .hero { padding: 3.25rem 0 2.25rem; }
 
+/* A README with nothing between its title and its first block: the rule
+   sits on the content, not over a band of empty space. */
+.hero--bare { padding-bottom: 0.75rem; }
+.hero + section:not([id]) { padding-top: 0; }
+
+hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+
 h1 {
   font-family: var(--f-mono);
   font-style: normal;
@@ -273,7 +280,9 @@ p.tight { margin-bottom: 0.625rem; }
 
 ul.plain { max-width: var(--measure); padding-left: 1.125rem; margin: 0 0 1rem; }
 ul.plain li { margin-bottom: 0.5rem; }
-kbd {
+/* A key is a <kbd> holding only its label; a <kbd> wrapped around a block
+   of HTML, as some READMEs use it for a framed box, is left alone. */
+kbd:not(:has(*)) {
   font-family: var(--f-mono);
   font-size: 0.8em;
   padding: 0.05em 0.4em;

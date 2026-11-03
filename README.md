@@ -1,7 +1,8 @@
 # inkcap
 
-Publishes a `MANUAL.md` as a one-page manual site, with the files an agent
-expects next to it. Made for GitHub Pages; any static host works.
+Publishes a `MANUAL.md`, or the README you already have, as a one-page
+manual site, with the files an agent expects next to it. Any static host
+serves it.
 
 An inkcap is the mushroom whose cap melts into a black ink that people once
 wrote with. As a name it is a small imprint: a repo's `MANUAL.md` goes in,
@@ -32,6 +33,10 @@ The manuscript is the API. inkcap reads what is in the repository and prints
 everything it can from it. Nothing is required beyond one Markdown file;
 everything else appears when it is present and is left out when it is not.
 
+It is for tools whose documentation is a reference, not a marketing site:
+one page you read and are done with, and that an agent reads without
+scraping it. A tool that needs a docs framework has outgrown it.
+
 There is no framework: one Node script, `marked` at build time, and the only
 JavaScript shipped is a copy button, the live star count, and the line that
 opens a disclosure when a link points at it. This page is a README printed
@@ -51,8 +56,9 @@ printed in the default ink; the repository comes from `git remote`, the version
 from `git describe`. A plain Markdown file with no conventions in it is a
 clean page.
 
-A site that is one of a family keeps a directory, usually `site/`, next to the
-manual, and a config that holds what differs from the other sites:
+A site with its own domain, mark or colour keeps a directory, usually
+`site/`, next to the manual, with a config for what differs from the
+defaults:
 
 ```
 MANUAL.md
@@ -144,7 +150,7 @@ inkcap reads a few conventions in it to build the richer components.
 | ```` ```console title="X" ```` before the first `##` | a copy block in the hero |
 | anything else before the first `##` | an opening section without a heading |
 | `## Heading` | a section, and one entry in the sticky rail |
-| `### Heading` | a mono subhead |
+| `### Heading` | a mono subhead, with the id GitHub would give it |
 | `#### name — note` | a collapsible row; the text after ` — ` is the muted tail |
 | `> quote` | an accent callout |
 | `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]` | a labelled callout of that kind, as GitHub prints it |
@@ -160,10 +166,19 @@ inkcap reads a few conventions in it to build the richer components.
 | `<kbd>Ctrl</kbd>` | a key cap |
 | `![alt](path "caption")` alone in its paragraph | a figure: sized from the file, linked to the full image, captioned by its title; see Images |
 
-The family sites keep the same spine, which is what makes them read as one:
-the hero with the Install and For your agent copy blocks, then Overview,
-Install, Quickstart, Commands, the tool's own sections, For agents, Notes.
-Nothing enforces that; it is a convention worth keeping.
+A manual reads best with a familiar spine: the hero with the Install and
+For your agent copy blocks, then Overview, Install, Quickstart, Commands,
+the tool's own sections, For agents, Notes. Nothing enforces that; it is a
+convention worth keeping.
+
+A README written for GitHub prints as it is. A `# ` inside a code block is a
+comment, not the title. With no `#` heading, a first line underlined with
+dashes is the title, and without either the folder's name is. A later `#`
+heading is a section, and a README whose outline starts at `###` gets its
+sections from those. A paragraph of badges is left off the page, because the
+masthead already carries the version and the star count. An `<img>` written
+as HTML is copied and served like a Markdown image, and a centred HTML
+header's one sentence is the description when no paragraph gives one.
 
 Titles are names of one to three words: `## Install`, not
 `## How to install it`. The same holds for subheads, row names, copy-block
@@ -172,7 +187,9 @@ there is a paragraph in the wrong place; sentences belong in the body and the
 captions. Guides are the one exception, because a guide's headings are the
 questions a reader searches for.
 
-Section ids are the heading slugs (`## For agents` is `#for-agents`). A collapsible row has an id too, the slug of its name
+Section ids are the heading slugs as GitHub writes them (`## For agents` is
+`#for-agents`), so a README's own table of contents still lands; every
+other heading gets one the same way. A collapsible row has an id too, the slug of its name
 (`#### search — …` under Commands is `#search`); when that id is already a
 section's or an earlier row's, the section id is prefixed (`#commands-search`).
 A link to a row opens it. If a heading is renamed, add the old id to
@@ -225,27 +242,27 @@ each, beside the manual, no tags, no nesting, no search box.
 
 ```
 guides/
-  using-recoil-with-worktrees.md
-  what-recoil-stores.md
+  counting-a-monorepo.md
+  what-tally-skips.md
 ```
 
 ```markdown
 ---
-title: Using recoil with git worktrees
-description: One store, one project, however many worktrees.
+title: Counting a monorepo
+description: One count per package, and one total.
 cluster: Workflows
-section: storage
-reviewed: 2026-09-21
+section: usage
+reviewed: 2026-11-03
 ---
 
-**A worktree shares its main clone's memory**, so nothing needs configuring:
-recoil maps the worktree back to the clone it was created from.
+**Run tally once at the root**, and it counts each package on its own line:
+a folder with its own manifest is a package.
 
-## Which project does a worktree belong to?
+## Which folders count as packages?
 
 ...
 
-## How do I keep a worktree's memories separate?
+## How do I leave a package out?
 
 ...
 ```
@@ -277,14 +294,14 @@ and a `rel="alternate"` link to its Markdown edition.
 
 ## Captures
 
-Console blocks in the family manuals are verbatim: what the tool printed, not
+Console blocks in a manual should be verbatim: what the tool printed, not
 what someone remembered it printing. Marking a block ```` ```console capture ````
 makes the build keep it that way.
 
 ````markdown
 ```console capture
-$ recoil wake --max-chars 1600
-# Recoil Wake · orbit
+$ tally src
+src  41 files  6,210 lines
 ...
 ```
 ````
@@ -310,9 +327,9 @@ and `PATH` entries, and masks unstable strings in the output:
 
 ```js
 captures: {
-  cwd: '/tmp/orbit',                       // the sandbox, default /tmp/<name>
+  cwd: '/tmp/tally',                       // the sandbox, default /tmp/<name>
   setup: ['git init -q', 'git add -A', 'git commit -qm init'],
-  env: { RECOIL_VERBOSE: '0' },
+  env: { TALLY_PROGRESS: '0' },
   path: '../bin',                          // prepended, relative to the site directory
   masks: [[/\b\d+ms\b/g, '0ms']],          // [pattern, replacement], applied in order
   timeout: 30000,                          // per command, milliseconds
@@ -373,49 +390,48 @@ that changes what a reader sees, so it is all on by default; `robots`,
 `sitemap`, `manifest`, `jsonld` and `editions` set to `false` in the config
 switch each off.
 
-`manifest.json` is the site as one object, for a registry such as
-[chain.sh](https://chain.sh) or a skill that installs tools to read. Absent
-facts are absent keys.
+`manifest.json` is the site as one object, for a tool registry, or a skill
+that installs tools, to read. Absent facts are absent keys.
 
 ```json
 {
   "inkcap": 1,
-  "name": "recoil",
-  "tagline": "local-first memory for coding agents",
-  "description": "Local-first memory for coding agents.",
-  "url": "https://recoil.sh",
-  "repo": "https://github.com/1broseidon/recoil",
-  "version": "v0.1.1",
+  "name": "tally",
+  "tagline": "line counts for a codebase",
+  "description": "Line counts for a codebase, per folder and per package.",
+  "url": "https://tally.example",
+  "repo": "https://github.com/you/tally",
+  "version": "v1.4.0",
   "license": "MIT",
   "language": "Go",
-  "updated": "2026-09-21",
+  "updated": "2026-11-03",
   "install": {
-    "command": "curl -fsSL https://recoil.sh/install | sh",
-    "page": "https://recoil.sh/#install",
-    "scripts": { "sh": "https://recoil.sh/install", "ps1": "https://recoil.sh/install.ps1" }
+    "command": "curl -fsSL https://tally.example/install | sh",
+    "page": "https://tally.example/#install",
+    "scripts": { "sh": "https://tally.example/install", "ps1": "https://tally.example/install.ps1" }
   },
-  "agent": "Install recoil and set it up in this repo for me.\n1. Run: curl -fsSL https://recoil.sh/install | sh\n…",
+  "agent": "Install tally and count this repo for me.\n1. Run: curl -fsSL https://tally.example/install | sh\n…",
   "manual": {
-    "html": "https://recoil.sh/",
-    "markdown": "https://recoil.sh/llms-full.txt",
-    "index": "https://recoil.sh/llms.txt"
+    "html": "https://tally.example/",
+    "markdown": "https://tally.example/llms-full.txt",
+    "index": "https://tally.example/llms.txt"
   },
   "sections": [
-    { "id": "overview", "label": "Overview", "summary": "…", "url": "https://recoil.sh/#overview" }
+    { "id": "overview", "label": "Overview", "summary": "…", "url": "https://tally.example/#overview" }
   ],
   "commands": [
-    { "name": "wake", "summary": "Bounded starter context", "url": "https://recoil.sh/#wake" }
+    { "name": "count", "summary": "Lines per folder", "url": "https://tally.example/#count" }
   ],
   "guides": [
     {
-      "slug": "using-recoil-with-worktrees",
-      "title": "Using recoil with git worktrees",
-      "description": "One store, one project, however many worktrees.",
+      "slug": "counting-a-monorepo",
+      "title": "Counting a monorepo",
+      "description": "One count per package, and one total.",
       "cluster": "Workflows",
-      "reviewed": "2026-09-21",
-      "url": "https://recoil.sh/guides/using-recoil-with-worktrees/",
-      "markdown": "https://recoil.sh/guides/using-recoil-with-worktrees.md",
-      "questions": ["Which project does a worktree belong to?"]
+      "reviewed": "2026-11-03",
+      "url": "https://tally.example/guides/counting-a-monorepo/",
+      "markdown": "https://tally.example/guides/counting-a-monorepo.md",
+      "questions": ["Which folders count as packages?"]
     }
   ]
 }
@@ -437,11 +453,11 @@ otherwise print.
 
 ```js
 export default {
-  name: 'cymbal',
-  url: 'https://cymbal.sh',
-  repo: '1broseidon/cymbal',
-  tagline: 'code navigation for coding agents',   // <title> is "name — tagline"
-  built: 'Built with tree-sitter and SQLite',      // the footer's third item
+  name: 'tally',
+  url: 'https://tally.example',
+  repo: 'you/tally',
+  tagline: 'line counts for a codebase',          // <title> is "name — tagline"
+  built: 'Built with Go',                          // the footer's third item
   accent: {
     light: { accent: '#34558C', soft: '#E3E9F3' },
     dark: { accent: '#8AAEE0', soft: '#1A2436' },
@@ -463,7 +479,7 @@ export default {
 | `manual` | path to the manual, relative to the site directory | `./MANUAL.md`, `../MANUAL.md`, `./README.md`, in that order from the site directory |
 | `changelog` | path to a Keep-a-Changelog file | `CHANGELOG.md` in the root |
 | `guides` | path to the guides directory | `guides/` in the root |
-| `version` | the version chip | `git describe --tags` |
+| `version` | the version chip | the latest `v1.2.3` tag, else the latest `1.2.3` tag; other tags, such as a sub-package's, are not versions |
 | `ogImage` | site-relative path of the Open Graph image | the hero figure; otherwise no image tags |
 | `host` | `github`, `cloudflare`, `netlify`, `vercel` or `static`: which redirect files `moved` becomes | the `404.html` map alone, which works on any host |
 | `titleWords` | the most words `inkcap check` allows in a title; `false` switches the check off | 3 |
@@ -473,7 +489,7 @@ export default {
 | `clusters` | the order of the guide clusters on `/guides/`, by name | the order their first guide appears in |
 | `llmsExtra` | extra lines for the Links section of `llms.txt` | |
 | `notFoundExtra` | a sentence added to the 404 page | |
-| `family` | `{ label, href }`, the footer's far link; `false` removes it | chain.sh, the family inkcap was made for |
+| `family` | `{ label, href }`, a link at the far end of the footer, for a site that belongs to a larger project | none |
 | `captures` | the capture sandbox, see Captures | the defaults there |
 | `robots`, `sitemap`, `manifest`, `jsonld`, `editions` | `false` switches that output off | all on |
 | `out`, `public`, `stars` | output, assets and star-count paths | `dist`, `public`, `stars.json` |
@@ -625,10 +641,16 @@ somewhere honest.
 
 ## In use
 
-The manuals of the [chain.sh](https://chain.sh) tools are printed with inkcap,
-each from its own repository and in its own accent:
-[ketch.run](https://ketch.run), [cymbal.sh](https://cymbal.sh),
-[brainfile.md](https://brainfile.md) and [recoil.sh](https://recoil.sh).
+These sites are printed with inkcap, each from its own repository and in
+its own accent: [ketch.run](https://ketch.run),
+[cymbal.sh](https://cymbal.sh), [brainfile.md](https://brainfile.md),
+[recoil.sh](https://recoil.sh) and
+[computer.hotline.dev](https://computer.hotline.dev).
+
+Three of them were VitePress sites before. Each one's `site/` went from 680
+to 5,180 lines of config, theme and components down to 40 to 59 lines, from
+173 to 402 installed packages down to 2, and from 158 kB to 1.9 MB of
+JavaScript on the home page down to 2 kB.
 
 ![ketch.run as inkcap prints it: the name and version in the masthead, the lede, the Install and agent copy blocks, and the contents rail on the right.](docs/ketch.webp "ketch.run, printed from ketch's MANUAL.md in its own teal.")
 

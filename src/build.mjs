@@ -22,15 +22,15 @@ import { articleLd, faqLd, graph, llmsTxt, manifestJson, robotsTxt, sitemapXml, 
 import { GH_MARK, forgeOf } from './forge.mjs'
 import {
   PAGE_SCRIPT, STARS_MIN, STARS_SCRIPT, commandsOf, figureOf, esc, firstSentence, inline, jsonLd,
-  parseChangelog, parseManual, plain, renderSections, slug, useImages,
+  parseChangelog, parseManual, plain, renderSections, slug, summaryOf, useImages,
 } from './render.mjs'
 import { detectLanguage, detectLicense, exists, fileDate, gitRemote, gitVersion } from './repo.mjs'
 import { formatStars, readStarCount } from './stars.mjs'
 
 export { parseChangelog, parseManual } from './render.mjs'
 
-/* Installer scripts in the root are served at the addresses the family's
- * install one-liners already use. */
+/* Installer scripts in the root are served at the addresses install
+ * one-liners conventionally use. */
 const INSTALLERS = [
   ['install.sh', ['install', 'install.sh']],
   ['install.ps1', ['install.ps1']],
@@ -78,7 +78,7 @@ export async function build(config, { site, manual: named, frozen = false, log =
 
   /* ---------- what the repository says ---------- */
 
-  const h1 = committed.match(/^#\s+(.+?)\s*$/m)?.[1] ?? ''
+  const h1 = plain(inline(parseManual(committed, '').title))
   const name = c.name || h1 || path.basename(root)
   const repo = c.repo || gitRemote(root)
   const forge = forgeOf(repo)
@@ -164,7 +164,8 @@ ${deeper
   /* The description is the manual's own opening paragraph, stripped of
    * markup — one fewer string to keep in sync. The tagline completes the
    * <title>; without one, the lede's first sentence does when it is short. */
-  const description = plain(intro[0] ?? '')
+  const description =
+    plain(intro[0] ?? '') || doc.blurb || summaryOf(opening) || (sections.map((s) => s.summary).find(Boolean) ?? '')
   const lede = firstSentence(description).replace(/\.$/, '')
   const tagline = c.tagline || (lede && lede.length <= 80 ? lede : '')
   const hasInstall = sections.some((s) => s.id === 'install')
@@ -215,7 +216,7 @@ ${deeper
 
   const footerWith = (extra = '') => `      <footer>
         <span>${esc(title)}${version ? ` ${esc(version)}` : ''}</span>${license ? `\n        <span>${esc(license)} licensed</span>` : ''}${c.built ? `\n        <span>${esc(c.built)}</span>` : ''}${extra ? `\n        <span>${extra}</span>` : ''}
-        <span><a href="https://github.com/1broseidon/inkcap">Published with inkcap</a></span>${
+        <span><a href="https://inkcap.io">Published with inkcap</a></span>${
           c.family ? `\n        <span class="spacer"><a href="${esc(c.family.href)}">${esc(c.family.label)}</a></span>` : ''
         }
       </footer>`
@@ -265,7 +266,7 @@ ${content}
    * is more than one thing to point at. A hero with a figure spans the page,
    * so the picture is read at the size it was taken, and the rail starts
    * below it. */
-  const page = ({ hero, blocks, rail, scripts = '', wide = false, after = '', kind = '', footer = '' }) => `${
+  const page = ({ hero, blocks, rail, scripts = '', wide = false, bare = false, after = '', kind = '', footer = '' }) => `${
     wide
       ? `  <div class="hero hero--wide">
 ${hero}
@@ -279,7 +280,7 @@ ${
   wide
     ? ''
     : `
-      <div class="hero">
+      <div class="hero${bare ? ' hero--bare' : ''}">
 ${hero}
       </div>
 `
@@ -330,6 +331,7 @@ ${scripts}`
 ${intro.map((p, i) => `        <p class="${i === 0 ? 'lede' : 'sub'}">${p}</p>`).join('\n')}
 ${heroBlocks.join('\n')}`,
       wide: Boolean(heroFigure),
+      bare: !intro.length && !heroBlocks.length,
       blocks: [...(opening.length ? [section('', '', opening)] : []), ...sections],
       rail: sections.length
         ? `        <p class="rail-label">Contents</p>

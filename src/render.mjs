@@ -36,12 +36,15 @@ export const esc = (s) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
   )
 
+/* An anchor as GitHub writes it, so a link that works in the README works
+ * on the page: lower case, punctuation gone, and each space a hyphen, so
+ * `Variables / Aliases` is `variables--aliases`. */
 export const slug = (s) =>
   s
     .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
+    .replace(/[^\p{L}\p{M}\p{N}\p{Pc}\s-]/gu, '')
     .trim()
-    .replace(/\s+/g, '-')
+    .replace(/\s/g, '-')
 
 /* ---------- inline ---------- */
 
@@ -50,7 +53,7 @@ export const marked = new Marked({ gfm: true })
 /* marked's inline pass handles emphasis, links and entities. The only thing it
  * gets wrong for this design is bare <code>, which needs the .inline class. */
 export const inline = (src) =>
-  marked.parseInline(src).replace(/<code>/g, '<code class="inline">')
+  siteImages(marked.parseInline(src).replace(/<code>/g, '<code class="inline">'))
 
 /* Rendered inline HTML back to the sentence a person would read: tags gone,
  * entities decoded, whitespace folded. This is the text that goes into meta
@@ -68,9 +71,9 @@ export const plain = (html) =>
 
 /* The first sentence of a paragraph: up to the first . ! or ? that ends a
  * word. "v0.2.0 is out." keeps its dots because they are not followed by a
- * space. */
+ * space, and "e.g." and "i.e." do not end a sentence. */
 export const firstSentence = (s) => {
-  const m = s.match(/^.*?[.!?](?=\s|$)/)
+  const m = s.match(/^.*?(?<!\b(?:e\.g|i\.e|etc|vs|cf))[.!?](?=\s|$)/i)
   return m ? m[0] : s
 }
 
@@ -166,6 +169,22 @@ let images = new Map()
 export const useImages = (map) => {
   images = map ?? new Map()
 }
+
+/* An <img> written as HTML, the way most READMEs centre their logo, gets the
+ * same treatment as a Markdown image: its src becomes the file's URL on the
+ * site. A src the build did not resolve is left as written. */
+const siteImages = (html) =>
+  html.includes('<img')
+    ? html.replace(/(<img\b[^>]*?\ssrc=)(["'])([^"']+)\2/gi, (m, pre, q, src) =>
+        images.has(src) ? `${pre}${q}${esc(images.get(src).url)}${q}` : m,
+      )
+    : html
+
+/* A paragraph of badges: images and links, and no words of its own. The
+ * masthead already carries the version and the star count, so a row of
+ * shields at the top of a README is left off the page. */
+export const badgesOf = (tok) =>
+  tok.type === 'paragraph' && /<img\b|!\[/i.test(tok.text) && !figureOf(tok) && !plain(inline(tok.text))
 
 const dims = (i) => (i?.width ? ` width="${i.width}" height="${i.height}"` : '')
 
@@ -279,7 +298,7 @@ export const block = (tok, note, hero = false) => {
       return `      <p${note ? ' class="note"' : ''}>${inline(tok.text)}</p>`
     }
     case 'heading':
-      return `      <h${tok.depth}>${inline(tok.text)}</h${tok.depth}>`
+      return `      <h${tok.depth}${tok.id ? ` id="${tok.id}"` : ''}>${inline(tok.text)}</h${tok.depth}>`
     case 'code': {
       const { lang, title } = fenceInfo(tok.lang)
       if (!SHELL.has(lang)) return `      <pre><code>${esc(tok.text)}</code></pre>`
@@ -305,10 +324,12 @@ ${body.map((t) => block(t, false)).join('\n')}
       return `      <ul class="plain">
 ${tok.items.map((i) => `        <li>${inline(i.text)}</li>`).join('\n')}
       </ul>`
+    case 'hr':
+      return '      <hr>'
     case 'space':
       return ''
     default:
-      return tok.raw ? `      ${tok.raw.trim()}` : ''
+      return tok.raw ? `      ${siteImages(tok.raw.trim())}` : ''
   }
 }
 
@@ -404,6 +425,7 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
   const opening = []
   const sections = []
   let heroFigure = null
+  let blurb = ''
   let current = null
   let disc = null
 
@@ -413,18 +435,53 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
     disc = null
   }
 
-  for (const tok of marked.lexer(md)) {
-    if (tok.type === 'heading' && tok.depth === 1) {
+  /* The title is the first # heading, wherever it sits; a # inside a code
+   * block is a comment, not a heading, and the lexer already knows that. A
+   * README with no # heading that opens with an underlined one (`Name` over
+   * a row of dashes) is titled by it. Any later # heading is a section. */
+  const tokens = marked.lexer(md)
+  const first = tokens.find((t) => t.type !== 'space')
+  let titled = !tokens.some((t) => t.type === 'heading' && t.depth === 1) &&
+    first?.type === 'heading' && first.depth === 2 && /\n\s*-+\s*$/.test(first.raw.trimEnd())
+      ? first
+      : null
+  if (titled) title = titled.text
+
+  /* Sections are the ## headings, or, in a README that starts its outline
+   * lower, the shallowest heading it has: a README of ### headings still
+   * gets its sections and its rail. */
+  const outline = tokens.filter((t) => t.type === 'heading' && t.depth > 1 && t !== titled).map((t) => t.depth)
+  const top = outline.includes(2) || !outline.length ? 2 : Math.min(...outline)
+  let heroOpen = hero
+
+  for (const tok of tokens) {
+    if (tok === titled) continue
+    if (tok.type === 'heading' && tok.depth === 1 && !titled) {
       title = tok.text
+      titled = tok
       continue
     }
-    if (tok.type === 'heading' && tok.depth === 2) {
+    if (!current && badgesOf(tok)) continue
+    if (tok.type === 'heading' && tok.depth <= top) {
       flushDisc()
-      current = { id: slug(tok.text), label: tok.text, blocks: [] }
+      /* The label is plain text: it is the rail entry and the section's
+       * name in llms.txt as well as its <h2>. */
+      const label = plain(inline(tok.text))
+      current = { id: slug(label), label, blocks: [] }
       sections.push(current)
       continue
     }
+    /* The hero is what opens the page, up to its first heading; a heading
+     * before the first section starts the opening section instead. */
+    if (!current && tok.type === 'heading') heroOpen = false
+    /* A README that opens with centred HTML often says what the tool is in
+     * there; its one sentence is the description when no paragraph does. */
+    if (!current && heroOpen && tok.type === 'html' && !blurb) {
+      const t = plain(tok.raw)
+      if (/^[A-Z][^•|]{10,200}[.!?]$/.test(t)) blurb = t
+    }
     if (!current) {
+      const hero = heroOpen
       if (hero && figureOf(tok)) {
         heroBlocks.push(block(tok, false, true))
         heroFigure ??= figureOf(tok).src
@@ -467,6 +524,20 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
     }
   }
 
+  /* Every other heading gets an id too, so a README's own table of contents
+   * (`[Installation](#installation)`) still lands. */
+  const headings = [
+    ...opening,
+    ...sections.flatMap((s) => s.blocks.flatMap((b) => (b.kind === 'discs' ? b.items.flatMap((d) => d.blocks) : [b]))),
+  ].filter((t) => t.type === 'heading')
+  for (const h of headings) {
+    const base = slug(plain(inline(h.text))) || 'heading'
+    let id = base
+    for (let n = 1; taken.has(id); n++) id = `${base}-${n}`
+    taken.add(id)
+    h.id = id
+  }
+
   /* The Questions section is ordinary on the page; for the machine editions
    * its rows are question-and-answer pairs. */
   const questions = sections
@@ -474,7 +545,7 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
     .flatMap((s) => s.items.map((d) => ({ question: d.text, answer: textOf(d.blocks) })))
     .filter((q) => q.answer)
 
-  return { title, intro, heroBlocks, heroCode, heroFigure, opening, sections, questions }
+  return { title, intro, blurb, heroBlocks, heroCode, heroFigure, opening, sections, questions, anchors: taken }
 }
 
 /* The changelog is the repo's own CHANGELOG.md, rendered with the same shell.

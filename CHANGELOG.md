@@ -6,6 +6,40 @@ All notable changes to inkcap are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-03
+
+A README written for GitHub prints as a clean page, tested against the
+READMEs of bat, fzf, ripgrep, jq, gum and uv.
+
+### Fixed
+
+- A `#` comment inside a code block is no longer taken as the page title.
+- A README whose title is underlined with dashes is titled by it, and its
+  first paragraph is the description.
+- A README whose outline starts at `###` gets its sections and its rail.
+- A later `#` heading is a section, not a new title.
+- An `<img>` written as HTML is copied and served like a Markdown image, so a
+  README's centred logo shows.
+- Every heading has the id GitHub gives it, so a README's own table of
+  contents lands. Existing section and row ids are unchanged.
+- The version is the latest `v1.2.3` or `1.2.3` tag; a sub-package's tag such
+  as `ignore-0.4.34` is not.
+- A `---` rule prints as a rule, not as text.
+- "e.g." and "i.e." no longer end a description's first sentence.
+
+### Changed
+
+- The footer no longer links to chain.sh by default. `family` still adds a
+  far link for a site that belongs to a larger project.
+- "Published with inkcap" links to inkcap.io.
+- A paragraph of badges at the top of a README is left off the page; the
+  masthead already carries the version and the star count.
+- When a README has no opening paragraph, the one sentence in its centred
+  HTML header is the description.
+- A title with code or links in it prints as plain text in the rail.
+- A page whose title has nothing under it closes the gap before the content.
+- `<kbd>` is a key cap only when it holds a label, not a block of HTML.
+
 ## [0.7.0] - 2026-11-02
 
 Guides read like part of the manual, on a phone as much as on a desk.

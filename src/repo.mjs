@@ -27,8 +27,12 @@ export const gitRemote = (cwd) => {
 }
 
 /* Version comes from the repo's own tags, so the site can't drift from what
- * the binary reports. Falls back to unversioned rather than guessing. */
-export const gitVersion = (cwd) => git(cwd, ['describe', '--tags', '--abbrev=0'])
+ * the binary reports: the latest `v1.2.3` tag, else the latest `1.2.3` one.
+ * A repository that also tags its sub-packages (`ignore-0.4.34`) is not
+ * versioned by them. Falls back to unversioned rather than guessing. */
+export const gitVersion = (cwd) =>
+  git(cwd, ['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*']) ||
+  git(cwd, ['describe', '--tags', '--abbrev=0', '--match', '[0-9]*'])
 
 const day = (iso) => (iso ? iso.slice(0, 10) : '')
 

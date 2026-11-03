@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -9,7 +10,7 @@ import { INK, loadConfig, validate } from '../src/config.mjs'
 import { parseFrontmatter } from '../src/guides.mjs'
 import { firstSentence, plain } from '../src/render.mjs'
 import { imageSize } from '../src/image.mjs'
-import { detectLicense } from '../src/repo.mjs'
+import { detectLicense, gitVersion } from '../src/repo.mjs'
 import { formatStars, readStarCount } from '../src/stars.mjs'
 
 const site = new URL('./fixture/', import.meta.url).pathname
@@ -61,7 +62,7 @@ test('a fixture manual renders into every output inkcap promises', async () => {
     assert.match(html, /const moved = {"#what":"#overview"}/)
     assert.match(html, /data-copy="curl -fsSL https:\/\/fixture\.example\/install \| sh"/, 'copy text drops the prompt')
     assert.match(html, /<span>MIT licensed<\/span>\s*<span>Built for the test suite<\/span>/, 'the licence is read from LICENSE')
-    assert.match(html, /<span><a href="https:\/\/github\.com\/1broseidon\/inkcap">Published with inkcap<\/a><\/span>/)
+    assert.match(html, /<span><a href="https:\/\/inkcap\.io">Published with inkcap<\/a><\/span>/)
     assert.match(html, /<meta name="generator" content="inkcap \d+\.\d+\.\d+">/)
     assert.match(html, /fetch\("https:\/\/api\.github\.com\/repos\/1broseidon\/fixture"\)/, 'the star count refreshes in the browser')
     assert.match(html, /if \(el && el\.tagName === 'DETAILS'\) el\.open = true/, 'a link to a disclosure opens it')
@@ -221,7 +222,7 @@ test('a bare README with no config is a clean page', async () => {
     assert.doesNotMatch(html, /licensed/, 'no LICENSE, no licence line')
     assert.doesNotMatch(html, /rel="icon"/, 'no public/favicon.svg, no icon link')
     assert.match(html, new RegExp(`--accent-light: ${INK.light.accent};`), 'the default ink')
-    assert.match(html, /<span class="spacer"><a href="https:\/\/chain\.sh">chain\.sh<\/a><\/span>/)
+    assert.doesNotMatch(html, /class="spacer"/, "no family, no far link")
     assert.match(await read(r.out, 'robots.txt'), /^# lonely\nUser-agent: \*\nAllow: \/\n/)
     assert.doesNotMatch(await read(r.out, 'robots.txt'), /Sitemap:/)
     assert.equal(await readFile(path.join(r.out, 'sitemap.xml'), 'utf8').catch(() => 'absent'), 'absent')
@@ -282,7 +283,7 @@ test('an image alone in its paragraph is a figure, sized, copied and paired with
     assert.match(hero, /<figure class="figure">\s*<a href="\/docs\/desk\.png"><picture><source media="\(max-width: 34rem\)" srcset="\/docs\/desk\.phone\.png" width="960" height="720"><img src="\/docs\/desk\.png" alt="The desk at work" width="1920" height="1080" fetchpriority="high" decoding="async"><\/picture><\/a>\s*<figcaption>The desk, <em>mid-job<\/em>\.<\/figcaption>/, 'a hero figure loads at once, with its phone crop and caption')
     assert.doesNotMatch(hero, /class="sub"/, 'the image is not hero copy')
     assert.match(html, /<a href="\/og\/card\.png"><img src="\/og\/card\.png" alt="A card" width="1200" height="630" loading="lazy" decoding="async"><\/a>/, 'a path inside public/ is served where public/ puts it')
-    assert.match(html, /<p>The overview opens after its picture\. An icon <img src="docs\/desk\.png" alt="dot"> stays in the line\.<\/p>/, 'an image inside a sentence stays inline')
+    assert.match(html, /<p>The overview opens after its picture\. An icon <img src="\/docs\/desk\.png" alt="dot"> stays in the line\.<\/p>/, 'an image inside a sentence stays inline')
     assert.match(html, /<a href="https:\/\/example\.com\/full"><picture><source [^>]+><img src="\/docs\/desk\.png" alt="Linked" width="1920" height="1080" loading="lazy"/, 'a linked image keeps its link')
     assert.match(html, /<img src="docs\/missing\.png" alt="Gone" loading="lazy" decoding="async">/, 'a missing file is left as written')
     assert.deepEqual(logged, ['image not found: docs/missing.png'])
@@ -639,4 +640,85 @@ test('stars.json reads in both shapes', () => {
   assert.equal(readStarCount({ stars: 5, updated: '2026-09-20' }, 'x'), 5)
   assert.equal(readStarCount({ x: 7 }, 'x'), 7)
   assert.equal(readStarCount(null, 'x'), undefined)
+})
+
+/* READMEs as they are found in the wild, each shape taken from a well-known
+ * project's: a # comment in a code block, a title underlined with dashes,
+ * a row of badges, a logo written as HTML, a table of contents pointing at
+ * ### headings, and sub-packages tagged beside the releases. */
+test('a README written for GitHub prints as a clean page', async () => {
+  const dir = await scratch()
+  try {
+    await mkdir(path.join(dir, 'doc'))
+    await writeFile(
+      path.join(dir, 'doc', 'logo.svg'),
+      '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="100"></svg>',
+    )
+    await writeFile(
+      path.join(dir, 'README.md'),
+      [
+        '<p align="center"><img src="doc/logo.svg" alt="wild"></p>',
+        '',
+        '[![CI](https://example.com/ci.svg)](https://example.com/ci) [![Version](https://example.com/v.svg)](https://example.com)',
+        '',
+        'A tool found in the wild.',
+        '',
+        '* [Installation](#installation)',
+        '* [From source](#from-source)',
+        '',
+        '## Install',
+        '',
+        '### Installation',
+        '',
+        '```sh',
+        '# in your .bashrc',
+        'export WILD=1',
+        '```',
+        '',
+        '### From source',
+        '',
+        'Build it.',
+        '',
+      ].join('\n'),
+    )
+    const r = await build(validate({}), { site: dir })
+    assert.equal(r.name, path.basename(dir), 'a # inside a code block is not the title')
+    const html = await read(r.out, 'index.html')
+    assert.match(html, /<meta name="description" content="A tool found in the wild\.">/, 'badges are not the description')
+    assert.doesNotMatch(html, /example\.com\/ci\.svg/, 'a row of badges is left off the page')
+    assert.match(html, /<img src="\/doc\/logo\.svg" alt="wild">/, 'an HTML <img> points at the copied file')
+    assert.match(await read(r.out, 'doc/logo.svg'), /<svg/, 'and the file is copied')
+    assert.match(html, /<h3 id="installation">Installation<\/h3>/, 'a ### heading has the id GitHub gives it')
+    assert.match(html, /<h3 id="from-source">From source<\/h3>/)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('a title underlined with dashes titles the page, and a later # is a section', () => {
+  const m = parseManual('ripgrep (rg)\n------------\n\nripgrep searches.\n\n## Install\n\nCargo.\n', 'dir')
+  assert.equal(m.title, 'ripgrep (rg)')
+  assert.equal(plain(m.intro[0]), 'ripgrep searches.')
+  assert.deepEqual(m.sections.map((s) => s.id), ['install'])
+
+  const n = parseManual('# tool\n\nIt works.\n\n# Usage\n\nRun it.\n', 'dir')
+  assert.equal(n.title, 'tool', 'the first # heading is the title')
+  assert.deepEqual(n.sections.map((s) => s.id), ['usage'], 'a later # heading is a section')
+})
+
+test('the version is the release tag, not a sub-package tag', async () => {
+  const dir = await scratch()
+  const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('init', '-q')
+    git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'one')
+    git('tag', '14.1.1')
+    git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'two')
+    git('tag', 'ignore-0.4.34')
+    assert.equal(gitVersion(dir), '14.1.1')
+    git('tag', 'v15.0.0')
+    assert.equal(gitVersion(dir), 'v15.0.0')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
 })

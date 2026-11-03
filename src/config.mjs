@@ -26,7 +26,7 @@ export const DEFAULTS = {
   manifest: true,
   jsonld: true,
   editions: true,
-  family: { label: 'chain.sh', href: 'https://chain.sh' },
+  family: false,
 }
 
 const HEX = /^#[0-9a-f]{6}$/i
