@@ -233,6 +233,22 @@ loads as it nears the screen. An image inside a sentence stays inline.
 A path that lands in `public/` is served where `public/` puts it. A file that
 is missing is left as written, and the build names it.
 
+Two or more adjacent image paragraphs in the hero become a gallery with a
+thumbnail picker below the main image. Put a blank line between the images:
+
+```markdown
+![The browser on the desktop](docs/browser.webp "Research in Chromium.")
+
+![A native drawing app](docs/drawing.webp "Editing an image in Pinta.")
+```
+
+Click a thumbnail to change the image. The arrow keys, Home and End also
+work when a thumbnail has focus. Each image keeps its caption, full-size
+link and optional `.phone` crop. The first image is selected on load and
+remains the default sharing image. A single image has no picker. Without
+JavaScript, all images appear in order. Images outside the hero stay as
+individual figures; a paragraph or code block separates gallery groups.
+
 ## Guides
 
 A guide answers one question a reader would search for, in a few hundred

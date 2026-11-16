@@ -6,6 +6,15 @@ All notable changes to inkcap are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-16
+
+### Added
+
+- Adjacent image paragraphs in the hero form a gallery with a thumbnail
+  picker. Mouse and keyboard selection preserve each image's caption, link
+  and phone crop. Single images have no picker; without JavaScript, all
+  gallery images remain visible.
+
 ## [0.8.0] - 2026-11-03
 
 A README written for GitHub prints as a clean page, tested against the

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { build, parseChangelog, parseManual } from '../src/build.mjs'
 import { findBlocks, parseBlock } from '../src/capture.mjs'
 import { INK, loadConfig, validate } from '../src/config.mjs'
@@ -13,7 +14,7 @@ import { imageSize } from '../src/image.mjs'
 import { detectLicense, gitVersion } from '../src/repo.mjs'
 import { formatStars, readStarCount } from '../src/stars.mjs'
 
-const site = new URL('./fixture/', import.meta.url).pathname
+const site = fileURLToPath(new URL('./fixture/', import.meta.url))
 const read = (out, p) => readFile(path.join(out, p), 'utf8')
 const scratch = () => mkdtemp(path.join(tmpdir(), 'inkcap-'))
 
@@ -282,6 +283,7 @@ test('an image alone in its paragraph is a figure, sized, copied and paired with
     assert.ok(hero.length > 0, 'a hero with a figure spans the page, ahead of the layout and its rail')
     assert.match(hero, /<figure class="figure">\s*<a href="\/docs\/desk\.png"><picture><source media="\(max-width: 34rem\)" srcset="\/docs\/desk\.phone\.png" width="960" height="720"><img src="\/docs\/desk\.png" alt="The desk at work" width="1920" height="1080" fetchpriority="high" decoding="async"><\/picture><\/a>\s*<figcaption>The desk, <em>mid-job<\/em>\.<\/figcaption>/, 'a hero figure loads at once, with its phone crop and caption')
     assert.doesNotMatch(hero, /class="sub"/, 'the image is not hero copy')
+    assert.doesNotMatch(hero, /data-gallery|gallery-picker/, 'a single hero image has no picker')
     assert.match(html, /<a href="\/og\/card\.png"><img src="\/og\/card\.png" alt="A card" width="1200" height="630" loading="lazy" decoding="async"><\/a>/, 'a path inside public/ is served where public/ puts it')
     assert.match(html, /<p>The overview opens after its picture\. An icon <img src="\/docs\/desk\.png" alt="dot"> stays in the line\.<\/p>/, 'an image inside a sentence stays inline')
     assert.match(html, /<a href="https:\/\/example\.com\/full"><picture><source [^>]+><img src="\/docs\/desk\.png" alt="Linked" width="1920" height="1080" loading="lazy"/, 'a linked image keeps its link')
@@ -298,6 +300,62 @@ test('an image alone in its paragraph is a figure, sized, copied and paired with
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
+})
+
+test('adjacent hero images keep their metadata in a thumbnail gallery', async () => {
+  const dir = await scratch()
+  try {
+    await mkdir(path.join(dir, 'docs'))
+    await writeFile(path.join(dir, 'docs', 'first.png'), png(1920, 1080))
+    await writeFile(path.join(dir, 'docs', 'second.png'), png(1200, 800))
+    await writeFile(path.join(dir, 'docs', 'second.phone.png'), png(480, 640))
+    const manual = [
+      '# gallery', '', 'A desktop with two views.', '',
+      '![Browser & terminal](docs/first.png "Research in *Chromium*.")', '',
+      '[![The "native" app](docs/second.png "Editing an image.")](https://example.com/original)', '',
+      '```console title="Install"', '$ install gallery', '```', '',
+      '## Overview', '', '![First body image](docs/first.png)', '',
+      '![Second body image](docs/second.png)', '',
+    ].join('\n')
+    await writeFile(path.join(dir, 'MANUAL.md'), manual)
+    const r = await build(validate({ url: 'https://gallery.example' }), { site: dir })
+    const html = await read(r.out, 'index.html')
+    const hero = html.slice(html.indexOf('<div class="hero hero--wide">'), html.indexOf('<div class="layout">'))
+    assert.equal((hero.match(/data-gallery role=/g) || []).length, 1)
+    assert.equal((hero.match(/<figure class="figure">/g) || []).length, 2)
+    assert.equal((hero.match(/data-gallery-index=/g) || []).length, 2)
+    assert.match(hero, /aria-label="Choose an image" hidden/, 'controls wait for JavaScript')
+    assert.doesNotMatch(hero, /<figure[^>]+hidden/, 'without JavaScript both full images are visible')
+    assert.match(hero, /Show image 1 of 2: Browser &amp; terminal/)
+    assert.match(hero, /Show image 2 of 2: The &quot;native&quot; app/)
+    assert.match(hero, /<figcaption>Research in <em>Chromium<\/em>\.<\/figcaption>/)
+    assert.match(hero, /<a href="https:\/\/example.com\/original"><picture><source[^>]+srcset="\/docs\/second.phone.png" width="480" height="640"><img[^>]+width="1200" height="800" loading="lazy"/)
+    assert.equal((hero.match(/fetchpriority="high"/g) || []).length, 1, 'only the first main image gets high priority')
+    assert.ok(hero.indexOf('class="copyblock"') > hero.indexOf('class="gallery-picker"'), 'the install block stays after the gallery')
+    assert.equal((html.match(/data-gallery role=/g) || []).length, 1, 'body images remain individual figures')
+    assert.match(html, /og:image" content="https:\/\/gallery.example\/docs\/first.png"/, 'the first image remains the sharing card')
+    assert.deepEqual(await readFile(path.join(r.out, 'docs', 'second.phone.png')), png(480, 640))
+    assert.equal(await read(r.out, 'llms-full.txt'), manual, 'Markdown remains readable in the machine edition')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('gallery groups end at prose or code and flush at the end of a manual', () => {
+  const doc = parseManual([
+    '# Grouped', '', '![One](one.png)', '', '![Two](two.png)', '',
+    'A separate view follows.', '', '![Three](three.png)', '',
+    '```console', '$ run', '```', '', '![Four](four.png)', '', '![Five](five.png)',
+  ].join('\n'), '')
+  assert.equal(doc.heroBlocks.length, 4, 'gallery, single image, code, gallery')
+  assert.match(doc.heroBlocks[0], /data-gallery role=/)
+  assert.doesNotMatch(doc.heroBlocks[1], /gallery-picker/)
+  assert.match(doc.heroBlocks[2], /<pre>/)
+  assert.match(doc.heroBlocks[3], /data-gallery role=/)
+  assert.equal(doc.heroFigure, 'one.png')
+  const guide = parseManual('![One](one.png)\n\n![Two](two.png)', '', { hero: false })
+  assert.equal(guide.heroBlocks.length, 0, 'guide images are not galleries')
+  assert.equal(parseManual('# Empty\n\nA description.', '').heroBlocks.length, 0)
 })
 
 test('the config orders guide clusters by name', async () => {

@@ -1,6 +1,6 @@
 {
   "name": "inkcap",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Publishes a MANUAL.md, or the README you already have, as a one-page manual site with the files an agent reads. Any static host serves it.",
   "type": "module",
   "bin": {

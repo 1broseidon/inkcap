@@ -207,6 +207,26 @@ const figure = (f, hero) => {
       </figure>`
 }
 
+/* Adjacent hero figures form a gallery. Keep every figure in the HTML so
+ * captions, links and phone crops stay together, and without JavaScript all
+ * images remain readable. One image keeps the ordinary figure markup. */
+const gallery = (items) => {
+  if (items.length === 1) return figure(items[0], true)
+  const thumbs = items.map((f, i) => {
+    const src = images.get(f.src)?.url ?? f.src
+    const label = `Show image ${i + 1} of ${items.length}${f.alt ? `: ${plain(inline(f.alt))}` : ''}`
+    return `          <button type="button" data-gallery-index="${i}" aria-label="${esc(label)}" aria-pressed="${i === 0}"><img src="${esc(src)}" alt="" loading="lazy" decoding="async"></button>`
+  }).join('\n')
+  return `      <div class="gallery" data-gallery role="group" aria-label="Image gallery">
+        <div class="gallery-stage">
+${items.map((f, i) => figure(f, i === 0)).join('\n')}
+        </div>
+        <div class="gallery-picker" role="group" aria-label="Choose an image" hidden>
+${thumbs}
+        </div>
+      </div>`
+}
+
 /* ---------- callouts ---------- */
 
 /* GitHub's alerts: a blockquote whose first line is `[!NOTE]`, `[!TIP]`,
@@ -428,6 +448,13 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
   let blurb = ''
   let current = null
   let disc = null
+  let heroFigures = []
+
+  const flushFigures = () => {
+    if (!heroFigures.length) return
+    heroBlocks.push(gallery(heroFigures))
+    heroFigures = []
+  }
 
   const flushDisc = () => {
     if (!disc) return
@@ -455,6 +482,7 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
   let heroOpen = hero
 
   for (const tok of tokens) {
+    if (tok.type !== 'space' && !figureOf(tok)) flushFigures()
     if (tok === titled) continue
     if (tok.type === 'heading' && tok.depth === 1 && !titled) {
       title = tok.text
@@ -483,7 +511,7 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
     if (!current) {
       const hero = heroOpen
       if (hero && figureOf(tok)) {
-        heroBlocks.push(block(tok, false, true))
+        heroFigures.push(figureOf(tok))
         heroFigure ??= figureOf(tok).src
       }
       else if (hero && tok.type === 'paragraph') intro.push(inline(tok.text))
@@ -503,6 +531,7 @@ export function parseManual(md, fallbackTitle, { hero = true } = {}) {
     if (disc) disc[disc.length - 1].blocks.push(tok)
     else current.blocks.push(tok)
   }
+  flushFigures()
   flushDisc()
 
   /* Section ids are the heading slugs; a disclosure's id is the slug of its
@@ -591,9 +620,35 @@ fetch(${JSON.stringify(forge.api)})
   .catch(() => {})
 </script>`
 
-/* The copy button, and the line that opens a disclosure when the address
- * points at it — a link to /#search should show search, not a closed row. */
+/* Copy buttons, image pickers, and disclosures addressed by a hash. */
 export const PAGE_SCRIPT = `<script>
+document.querySelectorAll('[data-gallery]').forEach((gallery) => {
+  const figures = [...gallery.querySelector('.gallery-stage').children]
+  const picker = gallery.querySelector('.gallery-picker')
+  const buttons = [...picker.querySelectorAll('button')]
+  const select = (index) => {
+    figures.forEach((figure, i) => { figure.hidden = i !== index })
+    buttons.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)))
+    figures[index].querySelector('img').loading = 'eager'
+  }
+  buttons.forEach((button, index) => {
+    button.addEventListener('click', () => select(index))
+    button.addEventListener('keydown', (e) => {
+      let next
+      if (e.key === 'ArrowRight') next = (index + 1) % buttons.length
+      else if (e.key === 'ArrowLeft') next = (index - 1 + buttons.length) % buttons.length
+      else if (e.key === 'Home') next = 0
+      else if (e.key === 'End') next = buttons.length - 1
+      else return
+      e.preventDefault()
+      select(next)
+      buttons[next].focus({ preventScroll: true })
+      buttons[next].scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    })
+  })
+  select(0)
+  picker.hidden = false
+})
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-copy]')
   if (!btn) return
